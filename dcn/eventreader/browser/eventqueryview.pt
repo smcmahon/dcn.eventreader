@@ -1,0 +1,30 @@
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en"
+      lang="en"
+      metal:use-macro="here/main_template/macros/master"
+      i18n:domain="dcn.eventreader">
+<body>
+    <div metal:fill-slot="main">
+        <tal:main-macro metal:define-macro="main">
+
+            <table class="ploneCalendar" summary="Calendar">
+                <tr>
+                    <th tal:repeat="day view/getWeekdays" tal:content="day" />
+                </tr>
+                <tr tal:repeat="week python:view.eventMonth(common='Y')">
+                    <td tal:repeat="eday week">
+                        <div tal:content="eday/day" />
+                        <div tal:repeat="event eday/events">
+                            <a href="#"
+                               tal:attributes="title event/description">
+                                <span tal:content="event/begins" tal:condition="python:event['begins'] != '12:00am'"/>
+                                <span tal:content="event/title" />
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+            </table>
+
+        </tal:main-macro>
+    </div>
+</body>
+</html>
