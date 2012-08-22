@@ -6,17 +6,27 @@
     <div metal:fill-slot="main">
         <tal:main-macro metal:define-macro="main">
 
-            <table class="ploneCalendar" summary="Calendar">
+<pre tal:content="view/getQueryParams" />
+<pre tal:content="view/getSiteParams" />
+<pre tal:content="view/getParams" />
+<pre tal:content="view/myUrl" />
+<pre tal:content="view/monthUrl" />
+<pre tal:content="view/weekUrl" />
+<pre tal:content="view/dayUrl" />
+<pre tal:content="view/nextUrl" />
+<pre tal:content="view/prevUrl" />
+
+            <table class="ploneCalendar" summary="Calendar" class="calbodytable">
                 <tr>
-                    <th tal:repeat="day view/getWeekdays" tal:content="day" />
+                    <th tal:repeat="day view/getWeekdays" tal:content="day" class="caldayheader" />
                 </tr>
-                <tr tal:repeat="week python:view.eventMonth(common='Y')">
+                <tr tal:repeat="week view/eventMonth" class="calweekrow">
                     <td tal:repeat="eday week">
-                        <div tal:content="eday/day" />
-                        <div tal:repeat="event eday/events">
+                        <div tal:content="eday/day" tal:attributes="class python:eday['today'] and 'caldaynumber caldaytoday' or 'caldaynumber'" />
+                        <div tal:repeat="event eday/events" class="caleventtitle" >
+                            <span tal:content="string:&bull; ${event/begins}" tal:condition="python:event['begins'] != '12:00am'"/>
                             <a href="#"
                                tal:attributes="title event/description">
-                                <span tal:content="event/begins" tal:condition="python:event['begins'] != '12:00am'"/>
                                 <span tal:content="event/title" />
                             </a>
                         </div>

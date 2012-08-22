@@ -102,6 +102,15 @@ DocTests for caldate
     >>> monthly(start, datetime.date(2009, 7, 31), datetime.date(2009, 5, 12))
     [datetime.date(2009, 5, 12), datetime.date(2009, 6, 9), datetime.date(2009, 7, 14)]
 
+    >>> startOfWeek(datetime.date(2012, 8, 21))
+    datetime.date(2012, 8, 19)
+
+    >>> endOfWeek(datetime.date(2012, 8, 21))
+    datetime.date(2012, 8, 25)
+
+    >>> weekDatesCalendar(datetime.date(2012, 8, 21))
+    [datetime.date(2012, 8, 19), datetime.date(2012, 8, 20), datetime.date(2012, 8, 21), datetime.date(2012, 8, 22), datetime.date(2012, 8, 23), datetime.date(2012, 8, 24), datetime.date(2012, 8, 25)]
+
 """
 import re
 import datetime
@@ -202,6 +211,26 @@ def monthly(start, end, target):
         monthStart = startOfNextMonth(monthStart)
     return res
 
+
+def startOfWeek(target):
+    """ return date for Sunday in target's week """
+
+    wday = target.isoweekday() % 7
+    return target - timedelta(wday)
+
+
+def endOfWeek(target):
+    """ return date for Saturday in target's week """
+
+    wday = target.isoweekday() % 7
+    return target + timedelta(6 - wday)
+
+
+def weekDatesCalendar(target):
+    """ returns a list of week dates for target's week """
+
+    sunday = startOfWeek(target)
+    return [sunday + timedelta(i) for i in range(0, 7)]
 
 if __name__ == "__main__":
     import doctest

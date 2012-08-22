@@ -1,9 +1,11 @@
 import calendar
-from datetime import date, timedelta
+from datetime import date
+from datetime import timedelta
 
-from Acquisition import aq_get
+from Acquisition import aq_get, aq_base
 from zope.i18nmessageid import MessageFactory
 from zope.interface import implements, Interface
+from zope.component import getMultiAdapter
 from Shared.DC.ZRDB.Results import Results
 
 from Products.Five import BrowserView
@@ -17,6 +19,18 @@ import caldate
 PLMF = MessageFactory('plonelocales')
 
 
+cal_params = {
+    'mode': set(['month', 'week', 'day']),
+    'date': 'date',
+    'org': 'int_list',
+    'gcid': 'int',
+    'public': set(['y', 'n', 'b']),
+    'common': set(['y', 'n', 'b']),
+    'udf1': set(['y', 'n']),
+    'udf2': set(['y', 'n']),
+}
+
+
 class IEventQueryView(Interface):
     """
     EventQuery view interface
@@ -25,7 +39,7 @@ class IEventQueryView(Interface):
     def getWeekdays():
         """Returns a list of Messages for the weekday names."""
 
-    def eventMonth(year=None, month=None, **kwa):
+    def eventMonth():
         """
             returns a sequence of weeks, each week being a sequence of days.
             If year/month is None, uses today
@@ -36,9 +50,47 @@ class IEventQueryView(Interface):
             Each event is a dictionary of event attributes
         """
 
+    def getParams():
+        """ return params """
+
+    def myUrl():
+        """
+            Assemble a URL that will reproduce the
+            current calendar
+        """
+
+    def monthUrl():
+        """ url for the full month """
+
+    def weekUrl():
+        """ url for the week """
+
+    def dayUrl():
+        """ url for the day """
+
+    def nextUrl():
+        """ url for next month, week or day """
+
+    def prevUrl():
+        """ url for previous month, week or day """
+
 
 def cleanDate(adate):
     return adate.strftime('%Y-%m-%d')
+
+
+def strToIntList(val):
+    if type(val) == int:
+        return [val]
+    else:
+        vlist = []
+        for v in val.split(','):
+            try:
+                vlist.append(int(v))
+            except ValueError:
+                pass
+        return vlist
+
 
 
 class EventQueryView(BrowserView):
@@ -54,50 +106,67 @@ class EventQueryView(BrowserView):
         self.reader = self.dbCal()
         self.portal_calendar = getToolByName(context, 'portal_calendar')
         self._ts = getToolByName(self.context, 'translation_service')
+        self.portal_state = getMultiAdapter((self.context, self.request), name=u'plone_portal_state')
+        self.navigation_root = self.portal_state.navigation_root()
+        # see if the nav root has a dbOrgId attribute. If it does, this
+        # will override any org specified in request
+        self.db_org_id = strToIntList(getattr(aq_base(self.navigation_root), 'dbOrgId', ''))
+        self.context_state = getMultiAdapter((self.context, self.request), name=u'plone_context_state')
+
+        # get params from request
+        vals = self.getQueryParams()
+        # get params from nav root
+        svals = self.getSiteParams()
+        self.site_params = svals
+        # consolidate with site params winning collisions
+        for key in svals:
+            vals[key] = svals[key]
+        self.params = vals
+
 
     def sql_quote(self, astring):
         return self.dbCal.sql_quote__(astring)
 
-    def eventsByDateRange(self,
-      start,
-      end,
-      oid=None,
-      gcid=None,
-      public=None,
-      common=None,
-      udf1=None,
-      udf2=None):
+    def eventsByDateRange(self, start, end):
         """
         Returns a sequence of Events with
         dates between start and end.
         Also, optionally, selects by several criteria
         """
 
-        if oid is None:
+        kwa = self.params
+
+        oid = self.db_org_id or kwa.get('org')
+        if oid:
+            oid_test = "AND e.oid in (%s)" % ','.join([str(int(i)) for i in oid])
+        else:
             oid_test = ""
-        else:
-            oid_test = "AND e.oid = %u" % oid
 
-        if public is None:
-            public_test = ""
-        else:
+        public = kwa.get('public', 'b')
+        if public != 'b':
             public_test = "AND e.public = %s" % self.sql_quote(public)
-
-        if common is None:
-            common_test = ""
         else:
-            common_test = "AND e.community = %s" % self.sql_quote(common)
+            public_test = ""
 
+        common = kwa.get('common', 'b')
+        if common != 'b':
+            common_test = "AND e.community = %s" % self.sql_quote(common)
+        else:
+            common_test = ""
+
+        udf1 = kwa.get('udf1')
         if udf1 is None:
             udf1_test = ""
         else:
             udf1_test = "AND e.udf1 = %s" % self.sql_quote(udf1)
 
+        udf2 = kwa.get('udf2')
         if udf2 is None:
             udf2_test = ""
         else:
             udf2_test = "AND e.udf2 = %s" % self.sql_quote(udf2)
 
+        gcid = kwa.get('gcid')
         if gcid is None:
             gcid_test = ""
             gcid_from = ""
@@ -138,22 +207,14 @@ class EventQueryView(BrowserView):
 
         return dicts
 
-    def eventsByDay(self,
-      start,
-      end,
-      oid=None,
-      gcid=None,
-      public=None,
-      common=None,
-      udf1=None,
-      udf2=None):
+    def eventsByDay(self, start, end):
         """
         Returns a day-keyed dictionary of days between start and end with events.
         Each day in the sequence is returned as a event list sorted by startTime.
         Also, optionally, selects by several criteria
         """
         days = {}
-        query = self.eventsByDateRange(start, end, oid=oid, gcid=gcid, public=public, common=common, udf1=udf1, udf2=udf2)
+        query = self.eventsByDateRange(start, end)
         # get the dates, taking recurrence into account
         for result in query:
             recurs = getattr(result, 'recurs', 'daily')
@@ -172,10 +233,10 @@ class EventQueryView(BrowserView):
 
         return days
 
-    def eventMonth(self, year=None, month=None, **kwa):
+    def getEventsForMonthDates(self, month_dates):
         """
-            returns a sequence of weeks, each week being a sequence of days
-            with each day being a dict with keys:
+            Take a structured month list of week lists of days
+            and fill it in with each day being a dict with keys:
                 day - timedate date
                 events - a sequence of events in startTime order
                 today - True if day is today
@@ -184,38 +245,51 @@ class EventQueryView(BrowserView):
 
         today = date.today()
 
-        if year is None:
-            year = today.year
-        if month is None:
-            month = today.month
-
-        # find day of month for today, if it's in this month
-        if (today.month == month) and (today.year == year):
-            dom = today.day
-        else:
-            dom = 0
-
-        cal = calendar.Calendar()
-        cal.firstweekday = self.portal_calendar.getFirstWeekDay()
-        month = cal.monthdatescalendar(year, month)
-
-        start = month[0][0]
-        end = month[-1][-1]
-        events = self.eventsByDay(start, end, **kwa)
+        start = month_dates[0][0]
+        end = month_dates[-1][-1]
+        events = self.eventsByDay(start, end)
 
         emonth = []
-        for week in month:
+        for week in month_dates:
             thisweek = []
             for day in week:
-                isday = day.day
                 thisweek.append({
-                    'day': isday,
+                    'day': day.day,
                     'events': events.get(day, []),
-                    'today': isday == dom
+                    'today': day == today
                     })
             emonth.append(thisweek)
 
         return emonth
+
+    def getEventMonth(self, target):
+        """
+            returns a sequence of weeks, each week being a sequence of days;
+            return is in getEventsForMonthDates format
+        """
+
+        cal = calendar.Calendar()
+        cal.firstweekday = self.portal_calendar.getFirstWeekDay()
+        month_dates = cal.monthdatescalendar(target.year, target.month)
+        return self.getEventsForMonthDates(month_dates)
+
+    def getEventWeek(self, target):
+        """
+            returns a sequence of weeks, each week being a sequence of days;
+            return is in getEventsForMonthDates format
+        """
+
+        month_dates = [caldate.weekDatesCalendar(target)]
+        return self.getEventsForMonthDates(month_dates)
+
+    def getEventDay(self, target):
+        """
+            returns a sequence of weeks, each week being a sequence of days;
+            return is in getEventsForMonthDates format
+        """
+
+        month_dates = [[target]]
+        return self.getEventsForMonthDates(month_dates)
 
     def getWeekdays(self):
         """Returns a list of Messages for the weekday names."""
@@ -226,3 +300,160 @@ class EventQueryView(BrowserView):
                                  default=self._ts.weekday_english(day, format='a')))
 
         return weekdays
+
+    def sanitizeParamDict(self, params):
+        """ make sure everything in the params dict is expected and
+            in acceptable format."""
+
+        for key in params.keys():
+            val = params.get(key)
+            if val is not None:
+                constraint = cal_params.get(key)
+                if constraint is not None:
+                    if constraint == 'date':
+                        try:
+                            val = caldate.parseDateString(val)
+                        except (TypeError, ValueError):
+                            val = None
+                    elif constraint == 'int':
+                        try:
+                            val = int(val)
+                        except ValueError:
+                            val = None
+                    elif constraint == 'int_list':
+                        val = strToIntList(val)
+                    elif type(constraint) == set:
+                        val = val.strip().lower()
+                        if val not in constraint:
+                            val = None
+                    else:
+                        val = None
+                else:
+                    val = None
+
+                if val is None:
+                    del params[key]
+                else:
+                    params[key] = val
+        return params
+
+    def getQueryParams(self):
+        """ Examine the HTTP query and pick up params for cal display """
+
+        params = {}
+        form = self.request.form
+        for key in cal_params:
+            val = form.get(key, form.get('%s-calendar' % key, None))
+            if val is not None:
+                params[key] = val
+
+        return self.sanitizeParamDict(params)
+
+    def getSiteParams(self):
+        """ examine the attributes of the site nav root for params
+            for cal """
+
+        # get the nav root
+        ps = getMultiAdapter((self.context, self.request), name=u'plone_portal_state')
+        nr = aq_base(ps.navigation_root())
+
+        params = {}
+        for key in cal_params.keys():
+            val = getattr(nr, key, None)
+            if val is not None:
+                params.setdefault(key, val)
+
+        return self.sanitizeParamDict(params)
+
+    def getParams(self):
+        """ get params """
+
+        return self.params
+
+    def eventMonth(self):
+        """ get a month based on params """
+
+        target = self.params.get('date', date.today())
+        mode = self.params.get('mode', 'month')
+        if mode == 'day':
+            return self.getEventDay(target)
+        elif mode == 'week':
+            return self.getEventWeek(target)
+        else:
+            return self.getEventMonth(target)
+
+    def myUrl(self, **overrides):
+        """
+            Assemble a URL that will reproduce the
+            current calendar
+        """
+
+        params = self.params.copy()
+        # consolidate overrides
+        for s in overrides:
+            params[s] = overrides[s]
+        # remove keys present in site params
+        for s in params.keys():
+            if s in self.site_params:
+                del params[s]
+
+        # generate query params when the setting isn't the default
+        val = params.get('date')
+        if val:
+            s = "date=%s;" % val.isoformat()
+        val = params.get('mode', 'month')
+        if val != 'month':
+            s = "%smode=%s;" % (s, val)
+        val = params.get('gcid')
+        if val:
+            s = "%sgcid=%s;" % (s, val)
+        val = params.get('public', 'b')
+        if val != 'b':
+            s = "%spublic=%s;" % (s, val)
+        val = params.get('common', 'b')
+        if val != 'b':
+            s = "%scommon=%s;" % (s, val)
+        val = params.get('udf1', 'n')
+        if val != 'n':
+            s = "%sudf1=%s;" % (s, val)
+        val = params.get('udf2', 'n')
+        if val != 'n':
+            s = "%sudf2=%s;" % (s, val)
+        val = params.get('org', self.db_org_id)
+        if val != self.db_org_id:
+            s = "%sorg=%s;" % (s, ','.join([str(int(i)) for i in val]))
+
+        if s:
+            s = "?%s" % s
+        return "%s%s" % (self.context_state.current_base_url(), s)
+
+    def monthUrl(self):
+        return self.myUrl(mode='month')
+
+    def weekUrl(self):
+        return self.myUrl(mode='week')
+
+    def dayUrl(self):
+        return self.myUrl(mode='day')
+
+    def nextUrl(self):
+        mode = self.params.get('mode', 'month')
+        cdate = self.params.get('date', date.today())
+        if mode == 'day':
+            cdate += timedelta(1)
+        elif mode == 'week':
+            cdate += timedelta(7)
+        elif mode == 'month':
+            cdate = caldate.startOfNextMonth(cdate)
+        return self.myUrl(date=cdate)
+
+    def prevUrl(self):
+        mode = self.params.get('mode', 'month')
+        cdate = self.params.get('date', date.today())
+        if mode == 'day':
+            cdate -= timedelta(1)
+        elif mode == 'week':
+            cdate -= timedelta(7)
+        elif mode == 'month':
+            cdate = caldate.startOfMonth(cdate) - timedelta(1)
+        return self.myUrl(date=cdate)
