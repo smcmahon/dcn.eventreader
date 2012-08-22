@@ -92,7 +92,6 @@ def strToIntList(val):
         return vlist
 
 
-
 class EventQueryView(BrowserView):
     """
     EventQuery browser view
@@ -112,6 +111,7 @@ class EventQueryView(BrowserView):
         # will override any org specified in request
         self.db_org_id = strToIntList(getattr(aq_base(self.navigation_root), 'dbOrgId', ''))
         self.context_state = getMultiAdapter((self.context, self.request), name=u'plone_context_state')
+        self.today = date.today()
 
         # get params from request
         vals = self.getQueryParams()
@@ -122,7 +122,6 @@ class EventQueryView(BrowserView):
         for key in svals:
             vals[key] = svals[key]
         self.params = vals
-
 
     def sql_quote(self, astring):
         return self.dbCal.sql_quote__(astring)
@@ -243,7 +242,7 @@ class EventQueryView(BrowserView):
             Each event is a dictionary of event attributes
         """
 
-        today = date.today()
+        today = self.today
 
         start = month_dates[0][0]
         end = month_dates[-1][-1]
@@ -293,13 +292,15 @@ class EventQueryView(BrowserView):
 
     def getWeekdays(self):
         """Returns a list of Messages for the weekday names."""
-        weekdays = []
-        # list of ordered weekdays as numbers
-        for day in self.portal_calendar.getDayNumbers():
-            weekdays.append(PLMF(self._ts.day_msgid(day, format='s'),
-                                 default=self._ts.weekday_english(day, format='a')))
-
+        weekdays = list(calendar.day_name)
+        weekdays.insert(0, weekdays.pop())
         return weekdays
+        # # list of ordered weekdays as numbers
+        # for day in self.portal_calendar.getDayNumbers():
+        #     weekdays.append(PLMF(self._ts.day_msgid(day, format='s'),
+        #                          default=self._ts.weekday_english(day)))
+
+        # return weekdays
 
     def sanitizeParamDict(self, params):
         """ make sure everything in the params dict is expected and
@@ -373,7 +374,7 @@ class EventQueryView(BrowserView):
     def eventMonth(self):
         """ get a month based on params """
 
-        target = self.params.get('date', date.today())
+        target = self.params.get('date', self.today)
         mode = self.params.get('mode', 'month')
         if mode == 'day':
             return self.getEventDay(target)
@@ -399,8 +400,10 @@ class EventQueryView(BrowserView):
 
         # generate query params when the setting isn't the default
         val = params.get('date')
-        if val:
+        if val and val != self.today:
             s = "date=%s;" % val.isoformat()
+        else:
+            s = ''
         val = params.get('mode', 'month')
         if val != 'month':
             s = "%smode=%s;" % (s, val)
@@ -447,9 +450,12 @@ class EventQueryView(BrowserView):
             cdate = caldate.startOfNextMonth(cdate)
         return self.myUrl(date=cdate)
 
+    def todayUrl(self):
+        return self.myUrl(date=self.today)
+
     def prevUrl(self):
         mode = self.params.get('mode', 'month')
-        cdate = self.params.get('date', date.today())
+        cdate = self.params.get('date', self.today)
         if mode == 'day':
             cdate -= timedelta(1)
         elif mode == 'week':
@@ -457,3 +463,18 @@ class EventQueryView(BrowserView):
         elif mode == 'month':
             cdate = caldate.startOfMonth(cdate) - timedelta(1)
         return self.myUrl(date=cdate)
+
+    def getMode(self):
+        """ return the current display mode: month, week, day """
+
+        return self.params.get('mode', 'month')
+
+    def getMonthYear(self):
+        """ return the displayed month and year, suitable for presentation """
+
+        return self.params.get('date', self.today).strftime("%B, %Y")
+
+    def getFullDate(self):
+        """ return the full date of the current display, suitable for presentation """
+
+        return self.params.get('date', self.today).strftime("%B %d, %Y").replace(' 0', ' ')

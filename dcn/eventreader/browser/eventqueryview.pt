@@ -9,12 +9,16 @@
 <pre tal:content="view/getQueryParams" />
 <pre tal:content="view/getSiteParams" />
 <pre tal:content="view/getParams" />
-<pre tal:content="view/myUrl" />
-<pre tal:content="view/monthUrl" />
-<pre tal:content="view/weekUrl" />
-<pre tal:content="view/dayUrl" />
-<pre tal:content="view/nextUrl" />
-<pre tal:content="view/prevUrl" />
+<pre tal:content="view/getMode" />
+<pre tal:content="view/getMonthYear" />
+<pre tal:content="view/getFullDate" />
+<a tal:attributes="href view/myUrl">My URL</a>
+<a tal:attributes="href view/todayUrl">Today</a>
+<a tal:attributes="href view/monthUrl">Month</a>
+<a tal:attributes="href view/weekUrl">Week</a>
+<a tal:attributes="href view/dayUrl">Day</a>
+<a tal:attributes="href view/prevUrl">Previous</a>
+<a tal:attributes="href view/nextUrl">Next</a>
 
             <table class="ploneCalendar" summary="Calendar" class="calbodytable">
                 <tr>
