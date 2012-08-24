@@ -1,4 +1,4 @@
-<configure 
+<configure
     xmlns="http://namespaces.zope.org/zope"
     xmlns:browser="http://namespaces.zope.org/browser"
     i18n_domain="dcn.eventreader">
@@ -9,6 +9,24 @@
       name="eventquery_view"
       class=".eventqueryview.EventQueryView"
       template="eventqueryview.pt"
+      allowed_interface=".eventqueryview.IEventQueryView"
+      permission="zope.Public"
+      />
+
+  <browser:page
+      for="*"
+      name="asRSS"
+      class=".eventqueryview.EventQueryView"
+      template="as_rss.pt"
+      allowed_interface=".eventqueryview.IEventQueryView"
+      permission="zope.Public"
+      />
+
+  <browser:page
+      for="*"
+      name="showEvent"
+      class=".eventqueryview.EventQueryView"
+      template="showEvent.pt"
       allowed_interface=".eventqueryview.IEventQueryView"
       permission="zope.Public"
       />

@@ -6,12 +6,15 @@
     <div metal:fill-slot="main">
         <tal:main-macro metal:define-macro="main">
 
+          <tal:block tal:define="event_base view/showEventUrl">
+
 <pre tal:content="view/getQueryParams" />
 <pre tal:content="view/getSiteParams" />
 <pre tal:content="view/getParams" />
 <pre tal:content="view/getMode" />
 <pre tal:content="view/getMonthYear" />
 <pre tal:content="view/getFullDate" />
+<pre tal:content="view/getCats" />
 <a tal:attributes="href view/myUrl">My URL</a>
 <a tal:attributes="href view/todayUrl">Today</a>
 <a tal:attributes="href view/monthUrl">Month</a>
@@ -19,6 +22,7 @@
 <a tal:attributes="href view/dayUrl">Day</a>
 <a tal:attributes="href view/prevUrl">Previous</a>
 <a tal:attributes="href view/nextUrl">Next</a>
+<a tal:attributes="href view/allCatsUrl">All Cats</a>
 
             <table class="ploneCalendar" summary="Calendar" class="calbodytable">
                 <tr>
@@ -30,13 +34,15 @@
                         <div tal:repeat="event eday/events" class="caleventtitle" >
                             <span tal:content="string:&bull; ${event/begins}" tal:condition="python:event['begins'] != '12:00am'"/>
                             <a href="#"
-                               tal:attributes="title event/description">
+                               tal:attributes="title event/description; href string:${event_base}${event/eid}">
                                 <span tal:content="event/title" />
                             </a>
                         </div>
                     </td>
                 </tr>
             </table>
+
+          </tal:block>
 
         </tal:main-macro>
     </div>

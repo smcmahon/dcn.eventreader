@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<rdf:RDF
+  xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+  xmlns:ev="http://purl.org/rss/1.0/modules/event/"
+  xmlns:dc="http://purl.org/dc/elements/1.1/"
+  xmlns="http://purl.org/rss/1.0/"
+  xmlns:i18n="http://xml.zope.org/namespaces/i18n"
+  xmlns:tal="http://xml.zope.org/namespaces/tal"
+  xmlns:metal="http://xml.zope.org/namespaces/metal"
+  tal:define="dummy python:request.form.setdefault('mode', 'upcoming');
+              events view/eventList;
+              show_base view/showEventUrl"
+  >
+
+  <channel
+    rdf:about="#"
+    tal:attributes="rdf:about view/myUrl"
+    >
+    <title>Davis California Events</title>
+    <link tal:content="view/myUrl" />
+    <description>Davis California Events</description>
+
+    <items>
+      <rdf:Seq>
+        <rdf:li rdf:resource="#"
+                tal:repeat="event events"
+                tal:attributes="rdf:resource string:${show_base}${event/eid}"
+          />
+      </rdf:Seq>
+    </items>
+
+  </channel>
+
+  <item rdf:about="#"
+        tal:repeat="event events"
+        tal:attributes="rdf:about event/eid"
+    >
+    <tal:block tal:define="url string:${show_base}${event/eid}">
+      <title tal:content="event/title" />
+      <dc:description tal:content="event/description" />
+      <link tal:content="url" />
+      <ev:organizer tal:content="event/orgname" />
+      <ev:location tal:content="event/location" />
+      <ev:startdate>
+        <tal:block tal:replace="event/start" /> <tal:block tal:replace="event/begins" />
+      </ev:startdate>
+      <ev:enddate>
+        <tal:block tal:replace="event/start" /> <tal:block tal:replace="event/ends" />
+      </ev:enddate>
+    </tal:block>
+  </item>
+
+</rdf:RDF>

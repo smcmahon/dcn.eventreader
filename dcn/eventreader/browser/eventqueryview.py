@@ -20,7 +20,7 @@ PLMF = MessageFactory('plonelocales')
 
 
 cal_params = {
-    'mode': set(['month', 'week', 'day']),
+    'mode': set(['month', 'week', 'day', 'upcoming']),
     'date': 'date',
     'org': 'int_list',
     'gcid': 'int',
@@ -28,6 +28,7 @@ cal_params = {
     'common': set(['y', 'n', 'b']),
     'udf1': set(['y', 'n']),
     'udf2': set(['y', 'n']),
+    'days': 'int',
 }
 
 
@@ -49,6 +50,9 @@ class IEventQueryView(Interface):
                 today - True if day is today
             Each event is a dictionary of event attributes
         """
+
+    def eventList(self):
+        """ get events in a simple list, based on params """
 
     def getParams():
         """ return params """
@@ -73,6 +77,9 @@ class IEventQueryView(Interface):
 
     def prevUrl():
         """ url for previous month, week or day """
+
+    def eventUrl(self, eid):
+        """ url to display event """
 
 
 def cleanDate(adate):
@@ -174,7 +181,7 @@ class EventQueryView(BrowserView):
             gcid_from = ", EvCats"
 
         query = """
-            SELECT DISTINCT e.eid, e.title, e.description, e.startTime, e.endTime,
+            SELECT DISTINCT e.eid, e.title, e.description, e.startTime, e.endTime, e.location,
              o.acronym, o.name as orgname,
              DATE_FORMAT(ev.sdate, "%%Y-%%m-%%d") as start,
              DATE_FORMAT(ev.edate, "%%Y-%%m-%%d") as end,
@@ -372,7 +379,7 @@ class EventQueryView(BrowserView):
         return self.params
 
     def eventMonth(self):
-        """ get a month based on params """
+        """ get events in a month data structure, based on params """
 
         target = self.params.get('date', self.today)
         mode = self.params.get('mode', 'month')
@@ -383,16 +390,47 @@ class EventQueryView(BrowserView):
         else:
             return self.getEventMonth(target)
 
+    def eventList(self):
+        """ get events in a simple list, based on params """
+
+        target = self.params.get('date', self.today)
+        mode = self.params.get('mode', 'month')
+        if mode == 'day':
+            edict = self.eventsByDay(target, target)
+        elif mode == 'week':
+            edict = self.eventsByDay(caldate.startOfWeek(target), caldate.endOfWeek(target))
+        elif mode == 'upcoming':
+            end = self.today + timedelta(self.params.get('days', 30))
+            edict = self.eventsByDay(self.today, end)
+        else:
+            edict = self.eventsByDay(caldate.startOfMonth(target), caldate.endOfMonth(target))
+        keys = edict.keys()
+        keys.sort()
+        elist = []
+        for key in keys:
+            elist += edict[key]
+        return elist
+
     def myUrl(self, **overrides):
         """
             Assemble a URL that will reproduce the
-            current calendar
+            current calendar with optional overrides.
+            override with a None value to remove an
+            item.
         """
 
         params = self.params.copy()
         # consolidate overrides
         for s in overrides:
-            params[s] = overrides[s]
+            oval = overrides[s]
+            if oval is None:
+                # delete it from params
+                try:
+                    del params[s]
+                except KeyError:
+                    pass
+            else:
+                params[s] = overrides[s]
         # remove keys present in site params
         for s in params.keys():
             if s in self.site_params:
@@ -478,3 +516,38 @@ class EventQueryView(BrowserView):
         """ return the full date of the current display, suitable for presentation """
 
         return self.params.get('date', self.today).strftime("%B %d, %Y").replace(' 0', ' ')
+
+    def getCats(self):
+        """ return a list of categories in alpha order """
+
+        # who for? Use 0 for global categories
+        oid = self.db_org_id or self.params.get('org', [0])
+        if len(oid) > 1:
+            oid = 0
+        else:
+            oid = oid[0]
+
+        query = """
+            select title, gcid from GlobalCategories
+            where oid = %i
+            order by title
+        """ % oid
+
+        current_gcid = self.params.get('gcid', -1)
+        res = []
+        for item in Results(self.reader.query(query)):
+            res.append({
+                'title': item.title,
+                'url': self.myUrl(gcid=item.gcid),
+                'current': item.gcid == current_gcid,
+                })
+        return res
+
+    def allCatsUrl(self):
+        """ url with no gcid """
+        return self.myUrl(gcid=None)
+
+    def showEventUrl(self):
+        """ base url to display individual events """
+
+        return "%s/showEvent?eid=" % self.portal_state.navigation_root_url()
