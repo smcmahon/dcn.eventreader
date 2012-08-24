@@ -1,0 +1,34 @@
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en"
+      lang="en"
+      metal:use-macro="here/main_template/macros/master"
+      i18n:domain="dcn.eventreader">
+<body>
+    <div metal:fill-slot="main" tal:define="event view/getEvent">
+        <tal:main-macro metal:define-macro="main">
+
+          <h1 class="documentFirstHeading" tal:content="event/title">Title</h1>
+
+          <div class="eventDetails vcard">
+            <h2 i18n:translate="summary_event_details">Event details</h2>
+            <div class="eventDetail">
+              <h3 i18n:translate="event_when">When</h3>
+              <div>
+
+
+
+              </div>
+            </div>
+          </div>
+
+          <div style="white-space:pre-line"
+               tal:content="event/description">
+            Description
+          </div>
+
+
+          <div tal:content="event" />
+
+        </tal:main-macro>
+    </div>
+</body>
+</html>

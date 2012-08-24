@@ -25,9 +25,9 @@
   <browser:page
       for="*"
       name="showEvent"
-      class=".eventqueryview.EventQueryView"
-      template="showEvent.pt"
-      allowed_interface=".eventqueryview.IEventQueryView"
+      class=".eventview.EventView"
+      template="eventview.pt"
+      allowed_interface=".eventview.IEventView"
       permission="zope.Public"
       />
 

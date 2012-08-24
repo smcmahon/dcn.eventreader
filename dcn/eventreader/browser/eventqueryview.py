@@ -78,8 +78,8 @@ class IEventQueryView(Interface):
     def prevUrl():
         """ url for previous month, week or day """
 
-    def eventUrl(self, eid):
-        """ url to display event """
+    def eventUrl():
+        """ base url to display event """
 
 
 def cleanDate(adate):
@@ -551,3 +551,4 @@ class EventQueryView(BrowserView):
         """ base url to display individual events """
 
         return "%s/showEvent?eid=" % self.portal_state.navigation_root_url()
+
