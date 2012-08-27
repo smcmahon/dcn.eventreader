@@ -47,6 +47,9 @@ class IEventView(Interface):
     def getOrg(self, oid):
         """ return a dict for the organization """
 
+    def getParams(self):
+        """ get the useful params as a dict """
+
 
 class EventView(BrowserView):
     """ Event View """
@@ -73,10 +76,8 @@ class EventView(BrowserView):
             self.db_org_id = int(db_org_id)
         else:
             self.db_org_id = -1
-        try:
-            self.eid = int(self.request.form.get('eid'))
-        except ValueError:
-            self.eid = None
+        self.params = param_utils.getQueryParams(request)
+        self.eid = self.params['eid']
 
     def getEvent(self):
         """ find an event by eid """
@@ -181,3 +182,8 @@ class EventView(BrowserView):
             return dicts[0]
         else:
             return None
+
+    def getParams(self):
+        """ get the useful params as a dict """
+
+        return self.params

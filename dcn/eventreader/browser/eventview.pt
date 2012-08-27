@@ -3,7 +3,7 @@
       metal:use-macro="here/main_template/macros/master"
       i18n:domain="dcn.eventreader">
 <body>
-    <div metal:fill-slot="main" tal:define="event view/getEvent">
+    <div metal:fill-slot="main" tal:define="event view/getEvent; params view/getParams">
         <tal:main-macro metal:define-macro="main">
 
           <h1 class="documentFirstHeading" tal:content="event/title">Title</h1>
@@ -61,14 +61,14 @@
             </div>
             </tal:phone>
 
-            <div class="eventDetail">
+            <div class="eventDetail" tal:condition="python: params.get('public-show', 'y') == 'y'">
                 <h3>Public</h3>
                 <div class="tel" tal:content="python: event['public'] == 'Y' and 'Yes' or 'No'">
                     Yes
                 </div>
             </div>
 
-            <div class="eventDetail">
+            <div class="eventDetail" tal:condition="python:params.get('free-show', 'y') == 'y'">
                 <h3>Free</h3>
                 <div class="tel" tal:content="python: event['free'] == 'Y' and 'Yes' or 'No'">
                     Yes
