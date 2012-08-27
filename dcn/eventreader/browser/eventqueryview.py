@@ -12,24 +12,13 @@ from Products.Five import BrowserView
 
 from Products.CMFCore.utils import getToolByName
 
+import param_utils
+
 # from dcn.eventreader import eventreaderMessageFactory as _
 
 import caldate
 
 PLMF = MessageFactory('plonelocales')
-
-
-cal_params = {
-    'mode': set(['month', 'week', 'day', 'upcoming']),
-    'date': 'date',
-    'org': 'int_list',
-    'gcid': 'int',
-    'public': set(['y', 'n', 'b']),
-    'common': set(['y', 'n', 'b']),
-    'udf1': set(['y', 'n']),
-    'udf2': set(['y', 'n']),
-    'days': 'int',
-}
 
 
 class IEventQueryView(Interface):
@@ -86,19 +75,6 @@ def cleanDate(adate):
     return adate.strftime('%Y-%m-%d')
 
 
-def strToIntList(val):
-    if type(val) == int:
-        return [val]
-    else:
-        vlist = []
-        for v in val.split(','):
-            try:
-                vlist.append(int(v))
-            except ValueError:
-                pass
-        return vlist
-
-
 class EventQueryView(BrowserView):
     """
     EventQuery browser view
@@ -116,18 +92,17 @@ class EventQueryView(BrowserView):
         self.navigation_root = self.portal_state.navigation_root()
         # see if the nav root has a dbOrgId attribute. If it does, this
         # will override any org specified in request
-        self.db_org_id = strToIntList(getattr(aq_base(self.navigation_root), 'dbOrgId', ''))
+        self.db_org_id = param_utils.strToIntList(getattr(aq_base(self.navigation_root), 'dbOrgId', ''))
         self.context_state = getMultiAdapter((self.context, self.request), name=u'plone_context_state')
         self.today = date.today()
 
         # get params from request
-        vals = self.getQueryParams()
+        vals = param_utils.getQueryParams(request)
         # get params from nav root
-        svals = self.getSiteParams()
+        svals = param_utils.getSiteParams(self.navigation_root)
         self.site_params = svals
         # consolidate with site params winning collisions
-        for key in svals:
-            vals[key] = svals[key]
+        param_utils.consolidateParams(vals, svals)
         self.params = vals
 
     def sql_quote(self, astring):
@@ -153,6 +128,12 @@ class EventQueryView(BrowserView):
             public_test = "AND e.public = %s" % self.sql_quote(public)
         else:
             public_test = ""
+
+        free = kwa.get('free', 'b')
+        if free != 'b':
+            free_test = "AND e.free = %s" % self.sql_quote(free)
+        else:
+            free_test = ""
 
         common = kwa.get('common', 'b')
         if common != 'b':
@@ -194,9 +175,9 @@ class EventQueryView(BrowserView):
                AND ev.eid = e.eid
                AND o.oid = e.oid
                %s
-               %s %s %s %s %s
+               %s %s %s %s %s %s
             ORDER BY ev.sdate, e.startTime, e.title
-        """ % (gcid_from, cleanDate(start), cleanDate(end), oid_test, public_test, common_test, udf1_test, udf2_test, gcid_test)
+        """ % (gcid_from, cleanDate(start), cleanDate(end), oid_test, public_test, free_test, common_test, udf1_test, udf2_test, gcid_test)
 
         dicts = Results(self.reader.query(query)).dictionaries()
 
@@ -308,70 +289,6 @@ class EventQueryView(BrowserView):
         #                          default=self._ts.weekday_english(day)))
 
         # return weekdays
-
-    def sanitizeParamDict(self, params):
-        """ make sure everything in the params dict is expected and
-            in acceptable format."""
-
-        for key in params.keys():
-            val = params.get(key)
-            if val is not None:
-                constraint = cal_params.get(key)
-                if constraint is not None:
-                    if constraint == 'date':
-                        try:
-                            val = caldate.parseDateString(val)
-                        except (TypeError, ValueError):
-                            val = None
-                    elif constraint == 'int':
-                        try:
-                            val = int(val)
-                        except ValueError:
-                            val = None
-                    elif constraint == 'int_list':
-                        val = strToIntList(val)
-                    elif type(constraint) == set:
-                        val = val.strip().lower()
-                        if val not in constraint:
-                            val = None
-                    else:
-                        val = None
-                else:
-                    val = None
-
-                if val is None:
-                    del params[key]
-                else:
-                    params[key] = val
-        return params
-
-    def getQueryParams(self):
-        """ Examine the HTTP query and pick up params for cal display """
-
-        params = {}
-        form = self.request.form
-        for key in cal_params:
-            val = form.get(key, form.get('%s-calendar' % key, None))
-            if val is not None:
-                params[key] = val
-
-        return self.sanitizeParamDict(params)
-
-    def getSiteParams(self):
-        """ examine the attributes of the site nav root for params
-            for cal """
-
-        # get the nav root
-        ps = getMultiAdapter((self.context, self.request), name=u'plone_portal_state')
-        nr = aq_base(ps.navigation_root())
-
-        params = {}
-        for key in cal_params.keys():
-            val = getattr(nr, key, None)
-            if val is not None:
-                params.setdefault(key, val)
-
-        return self.sanitizeParamDict(params)
 
     def getParams(self):
         """ get params """

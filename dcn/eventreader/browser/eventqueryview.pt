@@ -8,8 +8,6 @@
 
           <tal:block tal:define="event_base view/showEventUrl">
 
-<pre tal:content="view/getQueryParams" />
-<pre tal:content="view/getSiteParams" />
 <pre tal:content="view/getParams" />
 <pre tal:content="view/getMode" />
 <pre tal:content="view/getMonthYear" />
