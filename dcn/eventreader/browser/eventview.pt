@@ -10,23 +10,123 @@
 
           <div class="eventDetails vcard">
             <h2 i18n:translate="summary_event_details">Event details</h2>
+
             <div class="eventDetail">
-              <h3 i18n:translate="event_when">When</h3>
-              <div>
-
-
-
+              <h3>Dates</h3>
+              <div tal:content="structure view/getEventDates">
+                Dates
               </div>
             </div>
+
+            <div class="eventDetail"
+                 tal:define="time python: view.displayTime(event)"
+                 tal:condition="time">
+              <h3>Time</h3>
+              <div tal:content="time">
+                Time
+              </div>
+            </div>
+
+            <div class="eventDetail" tal:condition="event/location">
+                <h3 i18n:translate="event_where">Where</h3>
+                <div class="location" tal:content="event/location">
+                  Location
+                </div>
+            </div>
+
+            <tal:contact tal:define="contact_email event/eventEmail;
+                            contact_name event/eventContact"
+                tal:condition="python:contact_name or contact_email">
+            <div class="eventDetail">
+                <h3>Contact</h3>
+                <div>
+                    <a id="parent-fieldname-contactEmail"
+                       tal:condition="contact_email"
+                       tal:define="contact_name python:contact_name or 'email'"
+                       tal:replace="structure python: context.spamProtect(mailaddress=contact_email, mailname=contact_name, cssclass='email fn')"
+                       />
+                    <span class="fn"
+                          tal:condition="not: contact_email"
+                          tal:content="contact_name" />
+                </div>
+            </div>
+            </tal:contact>
+
+            <tal:phone tal:condition="event/eventPhone">
+            <div class="eventDetail">
+                <h3 i18n:translate="contact_phone">Contact Phone</h3>
+                <div class="tel" tal:content="event/eventPhone">
+                    Phone number
+                </div>
+            </div>
+            </tal:phone>
+
+            <div class="eventDetail">
+                <h3>Public</h3>
+                <div class="tel" tal:content="python: event['public'] == 'Y' and 'Yes' or 'No'">
+                    Yes
+                </div>
+            </div>
+
+            <div class="eventDetail">
+                <h3>Free</h3>
+                <div class="tel" tal:content="python: event['free'] == 'Y' and 'Yes' or 'No'">
+                    Yes
+                </div>
+            </div>
+
+          </div>
+
+          <div class="eventDetails vcard"
+              tal:define="org python:view.needOrg() and view.getOrg(event['oid'])"
+              tal:condition="org">
+            <h2>Organization</h2>
+
+            <div class="eventDetail">
+                <h3>Name</h3>
+                <div>
+                  <a tal:content="org/name" tal:attributes="href org/url">Title</a>
+                </div>
+            </div>
+
+            <div class="eventDetail"
+                  tal:define="cname python: org['contact']; cemail python: org['email']"
+                  tal:condition="python: cname or cemail">
+                <h3>Contact</h3>
+                <div>
+                    <a id="parent-fieldname-contactOrg"
+                       tal:condition="cemail"
+                       tal:define="cname python: cname or 'email'"
+                       tal:replace="structure python: context.spamProtect(mailaddress=cemail, mailname=cname, cssclass='email fn')"
+                       />
+                    <span class="fn"
+                          tal:condition="not: cemail"
+                          tal:content="cname" />
+                </div>
+            </div>
+
+            <tal:phone tal:condition="org/phone">
+            <div class="eventDetail">
+                <h3>Contact Phone</h3>
+                <div class="tel" tal:content="org/phone">
+                    Phone number
+                </div>
+            </div>
+            </tal:phone>
+
+            <div class="eventDetail" tal:condition="org/description">
+                <h3>Description</h3>
+                <div tal:content="org/description">
+                    description
+                </div>
+            </div>
+
           </div>
 
           <div style="white-space:pre-line"
                tal:content="event/description">
             Description
           </div>
-
-
-          <div tal:content="event" />
 
         </tal:main-macro>
     </div>
