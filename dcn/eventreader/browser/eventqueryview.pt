@@ -6,31 +6,59 @@
     <div metal:fill-slot="main">
         <tal:main-macro metal:define-macro="main">
 
-          <tal:block tal:define="event_base view/showEventUrl">
+          <tal:block
+            tal:define="event_base view/showEventUrl;
+                        mode view/getMode;
+                        events view/eventMonth;
+                        dbOrgId view/dbOrgId">
 
-<pre tal:content="view/getParams" />
-<pre tal:content="view/getMode" />
-<pre tal:content="view/getMonthYear" />
-<pre tal:content="view/getFullDate" />
-<pre tal:content="view/getCats" />
-<a tal:attributes="href view/myUrl">My URL</a>
-<a tal:attributes="href view/todayUrl">Today</a>
-<a tal:attributes="href view/monthUrl">Month</a>
-<a tal:attributes="href view/weekUrl">Week</a>
-<a tal:attributes="href view/dayUrl">Day</a>
-<a tal:attributes="href view/prevUrl">Previous</a>
-<a tal:attributes="href view/nextUrl">Next</a>
-<a tal:attributes="href view/allCatsUrl">All Cats</a>
+            <tal:block tal:condition="python: dbOrgId">
+              <h1>Org Name</h1>
+            </tal:block>
+
+            Mode
+            <ul>
+              <li><a tal:attributes="href view/monthUrl; class python: mode=='month' and 'current-mode' or None">Month</a></li>
+              <li><a tal:attributes="href view/weekUrl; class python: mode=='week' and 'current-mode' or None">Week</a></li>
+              <li><a tal:attributes="href view/dayUrl; class python: mode=='day' and 'current-mode' or None">Day</a></li>
+            </ul>
+
+            <h2 tal:content="view/getMonthYear" />
+
+            Navigation
+            <ul>
+              <li><a tal:attributes="href view/prevUrl">Previous</a></li>
+              <li><a tal:attributes="href view/todayUrl; class python:request.form.get('date') and 'other-date' or 'current-date'">Today</a></li>
+              <li><a tal:attributes="href view/nextUrl">Next</a></li>
+            </ul>
+
+            Categories
+            <ul tal:define="cats view/getCats" tal:condition="cats">
+              <li tal:repeat="cat cats">
+                <a tal:attributes="href cat/url; class python:cat['current'] and 'current-cat' or None"
+                   tal:content="cat/title"
+                   >A Category</a>
+              </li>
+            </ul>
 
             <table class="ploneCalendar" summary="Calendar" class="calbodytable">
-                <tr>
+                <tr tal:condition="python: mode != 'day'">
                     <th tal:repeat="day view/getWeekdays" tal:content="day" class="caldayheader" />
                 </tr>
-                <tr tal:repeat="week view/eventMonth" class="calweekrow">
+                <tr tal:condition="python: mode == 'day'">
+                    <th tal:content="view/getFullDate" class="caldayheader" />
+                </tr>
+                <tr tal:repeat="week events" class="calweekrow">
                     <td tal:repeat="eday week">
-                        <div tal:content="eday/day" tal:attributes="class python:eday['today'] and 'caldaynumber caldaytoday' or 'caldaynumber'" />
+                        <div tal:content="eday/day"
+                             tal:condition="python:mode != 'day'"
+                             tal:attributes="class python:eday['today'] and 'caldaynumber caldaytoday' or 'caldaynumber'" />
                         <div tal:repeat="event eday/events" class="caleventtitle" >
                             <span tal:content="string:&bull; ${event/begins}" tal:condition="python:event['begins'] != '12:00am'"/>
+                            <acronym
+                              tal:condition="not:dbOrgId"
+                              tal:content="string:${event/acronym}:"
+                              tal:attributes="title event/orgname">acronym</acronym>
                             <a href="#"
                                tal:attributes="title event/description; href string:${event_base}${event/eid}">
                                 <span tal:content="event/title" />

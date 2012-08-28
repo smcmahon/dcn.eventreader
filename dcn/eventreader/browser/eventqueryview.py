@@ -53,22 +53,48 @@ class IEventQueryView(Interface):
         """
 
     def monthUrl():
-        """ url for the full month """
+        """ url for month-mode calendar """
 
     def weekUrl():
-        """ url for the week """
+        """ url for week-mode calendar """
 
     def dayUrl():
-        """ url for the day """
+        """ url for day-mode calendar """
 
     def nextUrl():
-        """ url for next month, week or day """
+        """ url for next calendar """
+
+    def todayUrl():
+        """ url to get today's calendar """
 
     def prevUrl():
-        """ url for previous month, week or day """
+        """ url for previous calendar """
 
-    def eventUrl():
-        """ base url to display event """
+    def getMode():
+        """ return the current display mode: month, week, day """
+
+    def getMonthYear():
+        """ return the displayed month and year, suitable for presentation """
+
+    def getFullDate():
+        """ return the full date of the current display, suitable for presentation """
+
+    def getCats():
+        """ return a list of categories in alpha order unless suppressed """
+
+    def allCatsUrl():
+        """ url with no gcid """
+
+    def allCatsCurrent():
+        """ returns true if there's no gcid in the params """
+
+    def showEventUrl():
+        """ base url to display individual events """
+
+    def dbOrgId():
+        """ return dbOrgId as specified in nav root;
+            returns '' if not.
+        """
 
 
 def cleanDate(adate):
@@ -386,15 +412,19 @@ class EventQueryView(BrowserView):
         return "%s%s" % (self.context_state.current_base_url(), s)
 
     def monthUrl(self):
+        """ url for month-mode calendar """
         return self.myUrl(mode='month')
 
     def weekUrl(self):
+        """ url for week-mode calendar """
         return self.myUrl(mode='week')
 
     def dayUrl(self):
+        """ url for day-mode calendar """
         return self.myUrl(mode='day')
 
     def nextUrl(self):
+        """ url for next calendar """
         mode = self.params.get('mode', 'month')
         cdate = self.params.get('date', date.today())
         if mode == 'day':
@@ -406,9 +436,11 @@ class EventQueryView(BrowserView):
         return self.myUrl(date=cdate)
 
     def todayUrl(self):
+        """ url to get today's calendar """
         return self.myUrl(date=self.today)
 
     def prevUrl(self):
+        """ url for previous calendar """
         mode = self.params.get('mode', 'month')
         cdate = self.params.get('date', self.today)
         if mode == 'day':
@@ -435,7 +467,10 @@ class EventQueryView(BrowserView):
         return self.params.get('date', self.today).strftime("%B %d, %Y").replace(' 0', ' ')
 
     def getCats(self):
-        """ return a list of categories in alpha order """
+        """ return a list of categories in alpha order unless suppressed """
+
+        if self.params.get('nocat-display'):
+            return []
 
         # who for? Use 0 for global categories
         oid = self.db_org_id or self.params.get('org', [0])
@@ -451,7 +486,11 @@ class EventQueryView(BrowserView):
         """ % oid
 
         current_gcid = self.params.get('gcid', -1)
-        res = []
+        res = [{
+            'title': 'All',
+            'url': self.allCatsUrl(),
+            'current': current_gcid == -1
+            }]
         for item in Results(self.reader.query(query)):
             res.append({
                 'title': item.title,
@@ -464,8 +503,18 @@ class EventQueryView(BrowserView):
         """ url with no gcid """
         return self.myUrl(gcid=None)
 
+    def allCatsCurrent(self):
+        """ returns true if there's no gcid in the params """
+        return self.params.get('gcid', None) is None
+
     def showEventUrl(self):
         """ base url to display individual events """
 
         return "%s/showEvent?eid=" % self.portal_state.navigation_root_url()
+
+    def dbOrgId(self):
+        """ return dbOrgId as specified in nav root;
+            returns '' if not.
+        """
+        return self.db_org_id
 

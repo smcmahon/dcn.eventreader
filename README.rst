@@ -18,12 +18,5 @@ TO-DO
 
 Display flags
 
-public-show
-    Argument: n. Suppresses display of event's public value in single-day and single-event display.
-free-show
-    Argument: n. Suppresses display of event's free value in single-day and single-event display.
-
-Determining what controls are displayed
-
 nocat-display
     Argument: 1. Turns off display of category-selection block.
