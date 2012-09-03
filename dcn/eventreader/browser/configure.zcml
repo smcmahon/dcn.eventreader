@@ -15,9 +15,18 @@
 
   <browser:page
       for="*"
-      name="asRSS"
+      name="eventsRSS"
       class=".eventqueryview.EventQueryView"
       template="as_rss.pt"
+      allowed_interface=".eventqueryview.IEventQueryView"
+      permission="zope.Public"
+      />
+
+  <browser:page
+      for="*"
+      name="upcomingevents_view"
+      class=".eventqueryview.EventQueryView"
+      template="upcoming.pt"
       allowed_interface=".eventqueryview.IEventQueryView"
       permission="zope.Public"
       />

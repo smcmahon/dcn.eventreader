@@ -7,6 +7,7 @@ from zope.i18nmessageid import MessageFactory
 from zope.interface import implements, Interface
 from zope.component import getMultiAdapter
 from Shared.DC.ZRDB.Results import Results
+from DateTime import DateTime
 
 from Products.Five import BrowserView
 
@@ -42,6 +43,9 @@ class IEventQueryView(Interface):
 
     def eventList(self):
         """ get events in a simple list, based on params """
+
+    def eventDayList(max=0):
+        """ return upcoming events as list of day lists """
 
     def getParams():
         """ return params """
@@ -95,6 +99,9 @@ class IEventQueryView(Interface):
         """ return dbOrgId as specified in nav root;
             returns '' if not.
         """
+
+    def setParam(self, **kwa):
+        """ set params directly, typically from a template """
 
 
 def cleanDate(adate):
@@ -354,6 +361,25 @@ class EventQueryView(BrowserView):
             elist += edict[key]
         return elist
 
+    def eventDayList(self, max=0):
+        """ return upcoming events as list of day lists """
+
+        events = self.eventList()[:max - 1]
+        day = []
+        rez = []
+        last_date = date(1900, 1, 1)
+        for e in events:
+            sdate = e['start']
+            if sdate != last_date:
+                if day:
+                    rez.append(day)
+                    day = []
+                last_date = sdate
+            day.append(e)
+        if day:
+            rez.append(day)
+        return rez
+
     def myUrl(self, **overrides):
         """
             Assemble a URL that will reproduce the
@@ -517,4 +543,17 @@ class EventQueryView(BrowserView):
             returns '' if not.
         """
         return self.db_org_id
+
+    def setParam(self, **kwa):
+        """ set params directly, typically from a template """
+
+        for key, value in kwa.items():
+            val = param_utils.sanitizeParam(key, value)
+            if val is not None:
+                self.params[key] = val
+                # also set site_params so that the flag
+                # won't show in the query params returned
+                # by myURL(). This is based on the assumption
+                # that this method is called from a template.
+                self.site_params[key] = val
 

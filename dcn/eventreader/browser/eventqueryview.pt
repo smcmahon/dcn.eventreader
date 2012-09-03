@@ -54,10 +54,10 @@
                              tal:condition="python:mode != 'day'"
                              tal:attributes="class python:eday['today'] and 'caldaynumber caldaytoday' or 'caldaynumber'" />
                         <div tal:repeat="event eday/events" class="caleventtitle" >
-                            <span tal:content="string:&bull; ${event/begins}" tal:condition="python:event['begins'] != '12:00am'"/>
+                            &bull; <span tal:content="event/begins" tal:condition="python:event['begins'] != '12:00am'"/>
                             <acronym
-                              tal:condition="not:dbOrgId"
-                              tal:content="string:${event/acronym}:"
+                              tal:condition="python: event.get('acronym') and not dbOrgId"
+                              tal:content="event/acronym"
                               tal:attributes="title event/orgname">acronym</acronym>
                             <a href="#"
                                tal:attributes="title event/description; href string:${event_base}${event/eid}">

@@ -35,40 +35,41 @@ def strToIntList(val):
         return vlist
 
 
+def sanitizeParam(param_key, val):
+    """ return a sanitized parameter value """
+
+    if val is not None:
+        constraint = cal_params.get(param_key)
+        if constraint is not None:
+            if constraint == 'date':
+                try:
+                    return caldate.parseDateString(val)
+                except (TypeError, ValueError):
+                    return None
+            elif constraint == 'int':
+                try:
+                    return int(val)
+                except ValueError:
+                    return None
+            elif constraint == 'int_list':
+                return strToIntList(val)
+            elif type(constraint) == set:
+                s = val.strip().lower()
+                if s in constraint:
+                    return s
+    return None
+
+
 def sanitizeParamDict(params):
     """ make sure everything in the params dict is expected and
         in acceptable format."""
 
     for key in params.keys():
-        val = params.get(key)
-        if val is not None:
-            constraint = cal_params.get(key)
-            if constraint is not None:
-                if constraint == 'date':
-                    try:
-                        val = caldate.parseDateString(val)
-                    except (TypeError, ValueError):
-                        val = None
-                elif constraint == 'int':
-                    try:
-                        val = int(val)
-                    except ValueError:
-                        val = None
-                elif constraint == 'int_list':
-                    val = strToIntList(val)
-                elif type(constraint) == set:
-                    val = val.strip().lower()
-                    if val not in constraint:
-                        val = None
-                else:
-                    val = None
-            else:
-                val = None
-
-            if val is None:
-                del params[key]
-            else:
-                params[key] = val
+        val = sanitizeParam(key, params.get(key))
+        if val is None:
+            del params[key]
+        else:
+            params[key] = val
     return params
 
 

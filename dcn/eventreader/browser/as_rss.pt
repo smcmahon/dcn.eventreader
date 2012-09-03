@@ -8,7 +8,7 @@
   xmlns:i18n="http://xml.zope.org/namespaces/i18n"
   xmlns:tal="http://xml.zope.org/namespaces/tal"
   xmlns:metal="http://xml.zope.org/namespaces/metal"
-  tal:define="dummy python:request.form.setdefault('mode', 'upcoming');
+  tal:define="dummy python:view.setParam(mode='upcoming');
               events view/eventList;
               show_base view/showEventUrl"
   >
