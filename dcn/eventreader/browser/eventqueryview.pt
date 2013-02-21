@@ -1,47 +1,55 @@
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en"
       lang="en"
+      xmlns:tal="http://xml.zope.org/namespaces/tal"
+      xmlns:metal="http://xml.zope.org/namespaces/metal"
       metal:use-macro="here/main_template/macros/master"
       i18n:domain="dcn.eventreader">
 <body>
     <div metal:fill-slot="main">
         <tal:main-macro metal:define-macro="main">
 
-          <tal:block
+          <div
             tal:define="event_base view/showEventUrl;
                         mode view/getMode;
                         events view/eventMonth;
-                        dbOrgId view/dbOrgId">
+                        dbOrgId view/dbOrgId"
+            tal:attributes="class string:calmode-$mode">
 
             <tal:block tal:condition="python: dbOrgId">
               <h1>Org Name</h1>
             </tal:block>
 
-            Mode
-            <ul>
-              <li><a tal:attributes="href view/monthUrl; class python: mode=='month' and 'current-mode' or None">Month</a></li>
-              <li><a tal:attributes="href view/weekUrl; class python: mode=='week' and 'current-mode' or None">Week</a></li>
-              <li><a tal:attributes="href view/dayUrl; class python: mode=='day' and 'current-mode' or None">Day</a></li>
-            </ul>
+            <div id="calheader">
+                <h5 class="hiddenStructure">Mode</h5>
+                <ul id="calmode">
+                  <li><a tal:attributes="href view/monthUrl; class python: mode=='month' and 'current-mode' or None">Month</a></li>
+                  <li><a tal:attributes="href view/weekUrl; class python: mode=='week' and 'current-mode' or None">Week</a></li>
+                  <li><a tal:attributes="href view/dayUrl; class python: mode=='day' and 'current-mode' or None">Day</a></li>
+                </ul>
 
-            <h2 tal:content="view/getMonthYear" />
+                <h5 class="hiddenStructure">Navigation</h5>
+                <ul id="calnav">
+                  <li><a tal:attributes="href view/prevUrl" class="arrow">&lt;</a></li>
+                  <li><a tal:attributes="href view/todayUrl; class python:request.form.get('date') and 'other-date' or 'current-date'">Today</a></li>
+                  <li><a tal:attributes="href view/nextUrl" class="arrow">&gt;</a></li>
+                </ul>
 
-            Navigation
-            <ul>
-              <li><a tal:attributes="href view/prevUrl">Previous</a></li>
-              <li><a tal:attributes="href view/todayUrl; class python:request.form.get('date') and 'other-date' or 'current-date'">Today</a></li>
-              <li><a tal:attributes="href view/nextUrl">Next</a></li>
-            </ul>
+                <h2 class="currmonth" tal:content="view/getMonthYear" />
 
-            Categories
-            <ul tal:define="cats view/getCats" tal:condition="cats">
-              <li tal:repeat="cat cats">
-                <a tal:attributes="href cat/url; class python:cat['current'] and 'current-cat' or None"
-                   tal:content="cat/title"
-                   >A Category</a>
-              </li>
-            </ul>
+                <div id="calcatbox">
+                <h5 class="hiddenStructure">Categories</h5>
+                <ul tal:define="cats view/getCats" tal:condition="cats" id="calcats">
+                  <li tal:repeat="cat cats">
+                    <a tal:attributes="href cat/url; class python:cat['current'] and 'current-cat' or None"
+                       tal:content="cat/title"
+                       >A Category</a>
+                  </li>
+                </ul>
+                <br style="clear:both"/>
+                </div>
+            </div>
 
-            <table class="ploneCalendar" summary="Calendar" class="calbodytable">
+            <table class="ploneCalendar" summary="Calendar" id="calbody">
                 <tr tal:condition="python: mode != 'day'">
                     <th tal:repeat="day view/getWeekdays" tal:content="day" class="caldayheader" />
                 </tr>
@@ -53,22 +61,32 @@
                         <div tal:content="eday/day"
                              tal:condition="python:mode != 'day'"
                              tal:attributes="class python:eday['today'] and 'caldaynumber caldaytoday' or 'caldaynumber'" />
-                        <div tal:repeat="event eday/events" class="caleventtitle" >
-                            &bull; <span tal:content="event/begins" tal:condition="python:event['begins'] != '12:00am'"/>
+                        <ul>
+                        <li tal:repeat="event eday/events" class="caleventtitle" >
+                            <span tal:content="event/begins" tal:condition="python:event['begins'] != '12:00am'" class="eventtime" />
                             <acronym
-                              tal:condition="python: event.get('acronym') and not dbOrgId"
+                              tal:condition="python: mode != 'day' and event.get('acronym') and not dbOrgId"
                               tal:content="event/acronym"
                               tal:attributes="title event/orgname">acronym</acronym>
                             <a href="#"
-                               tal:attributes="title event/description; href string:${event_base}${event/eid}">
-                                <span tal:content="event/title" />
+                               tal:attributes="title event/description; href string:${event_base}${event/eid}" class="eventtitle">
+                                <span tal:replace="event/title" />
                             </a>
-                        </div>
+                            <div tal:condition="python:mode == 'day'">
+                                <span tal:replace="event/begins" />
+                                –
+                                <span tal:replace="event/ends" />
+                                <div tal:content="event/orgname" />
+                                <div tal:content="event/location" />
+                                <div tal:content="event/description" style="white-space:pre-line" />
+                            </div>
+                        </li>
+                        </ul>
                     </td>
                 </tr>
             </table>
 
-          </tal:block>
+          </div>
 
         </tal:main-macro>
     </div>

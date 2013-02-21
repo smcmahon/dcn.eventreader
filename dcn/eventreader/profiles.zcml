@@ -1,0 +1,22 @@
+<configure
+    xmlns="http://namespaces.zope.org/zope"
+    xmlns:genericsetup="http://namespaces.zope.org/genericsetup"
+    i18n_domain="dcn.eventreader">
+
+  <genericsetup:registerProfile
+      name="default"
+      title="dcn_eventreader"
+      directory="profiles/default"
+      description='Extension profile for the DCN Event Reader.'
+      provides="Products.GenericSetup.interfaces.EXTENSION"
+      />
+
+  <genericsetup:importStep
+      name="dcn.eventreader.various"
+      title="dcn.eventreader: miscellaneous import steps"
+      description="Various import steps that are not handled by GS import/export handlers."
+      handler="dcn.eventreader.setuphandlers.setupVarious">
+    <depends name="skins"/>
+  </genericsetup:importStep>
+
+</configure>

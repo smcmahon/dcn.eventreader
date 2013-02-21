@@ -1,0 +1,153 @@
+h2.currmonth {
+    font-size: 200%;
+    font-weight: normal;
+    text-align: center;
+    margin-bottom: 0.75em;
+}
+
+#calbody .calweekrow td {
+    border: 1px solid black;
+    padding: 0;
+    text-align: left;
+    vertical-align: top;
+    width: 14%;
+}
+.caldayheader {
+    padding-top: 1em;
+    text-align: center;
+}
+.caldaynumber {
+    background-color: #fff;
+    border-bottom: 1px solid black;
+    border-left: 1px solid black;
+    float: right;
+    font-weight: normal;
+    padding: 0.2em;
+    text-align: center;
+    width: 1.5em;
+    margin: 0 0 0.2em 0.2em;
+}
+.caldaytoday {
+    background-color: #000;
+    color: #fff;
+}
+#calbody .calweekrow td ul {
+    margin: 0.5em 0.25em 0.5em 1.25em;
+    list-style-type: square;
+}
+#calbody .calweekrow td ul li {
+    line-height: 1.2em;
+    font-size: 90%;
+}
+#calbody .calweekrow td ul li a {
+    border: none !important;
+}
+
+/* Mode Menu */
+ul#calmode {
+    list-style: none;
+    margin-left: 0;
+    float: left;
+}
+#calmode > li {
+    background-color: #fff;
+    display: block;
+    float: left;
+    margin: 0;
+    min-width: 6em;
+}
+#calmode > li a {
+    margin: 0;
+    padding: 0.5em 0.5em;
+    text-align: center;
+    font-size: 200%;
+    display: block;
+    border: none !important;
+}
+#calmode > li a:link,
+#calmode > li a:visited {
+    color: #069 !important;
+}
+#calmode > li a:hover {
+    background-color: #069;
+    color: #fff !important;
+}
+#calmode > li a.current-mode {
+    background-color: #aaa;
+}
+
+/* Navigation Menu */
+ul#calnav {
+    list-style: none;
+    margin-left: 0;
+    float: right;
+}
+#calnav > li {
+    background-color: #fff;
+    display: block;
+    float: left;
+    margin: 0;
+    min-width: 6em;
+}
+#calnav > li a {
+    margin: 0;
+    padding: 0.5em 0.5em;
+    text-align: center;
+    font-size: 200%;
+    display: block;
+    border: none !important;
+}
+#calnav > li a:link,
+#calnav > li a:visited {
+    color: #069 !important;
+}
+#calnav > li a:hover {
+    background-color: #069;
+    color: #fff !important;
+}
+
+/* Categories Menu */
+#calcatbox {
+    background-color: #ccc;
+}
+ul#calcats {
+    list-style: none;
+    margin-left: 0;
+    clear: both;
+}
+#calcats > li {
+    display: block;
+    float: left;
+    margin: 0;
+    min-width: 14.285714285714286%;
+/*
+    border-bottom: 1px solid #fff;
+    border-right: 1px solid #fff;
+    */
+}
+#calcats > li a {
+    margin: 0;
+    padding: 0.25em 0.5em;
+    display: block;
+    border: none !important;
+}
+#calcats > li a:link,
+#calcats > li a:visited, {
+    color: #069 !important;
+}
+#calcats > li a:hover {
+    background-color: #069;
+    color: #fff !important;
+}
+#calcats > li a.current-cat {
+    background-color: #aaa;
+}
+
+.calmode-day .eventtitle,
+.calmode-day .eventtime {
+    font-size: 150%;
+    font-weight: bold;
+}
+.calmode-day .caleventtitle {
+    padding-top: 0.5em;
+}

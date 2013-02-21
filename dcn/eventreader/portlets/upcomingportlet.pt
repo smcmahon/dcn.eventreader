@@ -1,0 +1,29 @@
+<dl class="portlet portletUpcomingPortlet"
+    i18n:domain="dcn.eventreader"
+    tal:define="daylist view/eventDayList"
+    tal:condition="daylist">
+
+    <dt class="portletHeader">
+        <span class="portletTopLeft"></span>
+        Header
+        <span class="portletTopRight"></span>
+    </dt>
+
+    <dd class="portletItem odd">
+        Body text!
+        <div tal:repeat="day daylist">
+            <div tal:content="python:day[0]" />
+            <div tal:repeat="event python:day[1]">
+                <div tal:content="event/title" />
+            </div>
+            <br />
+        </div>
+    </dd>
+
+    <dd class="portletFooter">
+        <span class="portletBottomLeft"></span>
+        Footer
+        <span class="portletBottomRight"></span>
+    </dd>
+
+</dl>

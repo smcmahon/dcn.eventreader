@@ -2,7 +2,6 @@
     xmlns="http://namespaces.zope.org/zope"
     xmlns:browser="http://namespaces.zope.org/browser"
     i18n_domain="dcn.eventreader">
-    <!-- -*- extra stuff goes here -*- -->
 
   <browser:page
       for="*"
@@ -39,5 +38,11 @@
       allowed_interface=".eventview.IEventView"
       permission="zope.Public"
       />
+
+  <browser:resourceDirectory
+      name="dcn.eventreader"
+      directory="resources"
+      />
+
 
 </configure>

@@ -9,6 +9,8 @@ from zope.component import getMultiAdapter
 from Shared.DC.ZRDB.Results import Results
 from DateTime import DateTime
 
+from plone.memoize.instance import memoize
+
 from Products.Five import BrowserView
 
 from Products.CMFCore.utils import getToolByName
@@ -136,6 +138,15 @@ class EventQueryView(BrowserView):
         self.site_params = svals
         # consolidate with site params winning collisions
         param_utils.consolidateParams(vals, svals)
+
+        # If no org set, always show public, community
+        if not (self.db_org_id or vals.get('org')):
+            vals['public'] = 'y'
+            vals['common'] = 'y'
+            # so they don't show up on URLs:
+            self.site_params['public'] = 'y'
+            self.site_params['common'] = 'y'
+
         self.params = vals
 
     def sql_quote(self, astring):
@@ -195,8 +206,8 @@ class EventQueryView(BrowserView):
             gcid_from = ", EvCats"
 
         query = """
-            SELECT DISTINCT e.eid, e.title, e.description, e.startTime, e.endTime, e.location,
-             o.acronym, o.name as orgname,
+            SELECT DISTINCT e.eid, e.title, e.description, e.startTime, e.endTime, e.location, e.eventUrl,
+             o.acronym, o.name as orgname, o.url,
              DATE_FORMAT(ev.sdate, "%%Y-%%m-%%d") as start,
              DATE_FORMAT(ev.edate, "%%Y-%%m-%%d") as end,
              TIME_FORMAT(e.startTime, "%%l:%%i %%p") as begins,
@@ -223,7 +234,9 @@ class EventQueryView(BrowserView):
             for key in adict.keys():
                 val = adict[key]
                 if type(val) == type(''):
-                    adict[key] = adict[key].decode('Windows-1252', 'replace')
+                    if val.lower().startswith('javascript'):
+                        val = ''
+                    adict[key] = val.decode('Windows-1252', 'replace')
 
         return dicts
 
@@ -311,6 +324,7 @@ class EventQueryView(BrowserView):
         month_dates = [[target]]
         return self.getEventsForMonthDates(month_dates)
 
+    @memoize
     def getWeekdays(self):
         """Returns a list of Messages for the weekday names."""
         weekdays = list(calendar.day_name)
@@ -328,6 +342,7 @@ class EventQueryView(BrowserView):
 
         return self.params
 
+    @memoize
     def eventMonth(self):
         """ get events in a month data structure, based on params """
 
@@ -340,8 +355,10 @@ class EventQueryView(BrowserView):
         else:
             return self.getEventMonth(target)
 
+    @memoize
     def eventList(self):
-        """ get events in a simple list, based on params """
+        """ get events in a simple list, based on params.
+            list format [(date, eventdict),...] """
 
         target = self.params.get('date', self.today)
         mode = self.params.get('mode', 'month')
@@ -358,26 +375,31 @@ class EventQueryView(BrowserView):
         keys.sort()
         elist = []
         for key in keys:
-            elist += edict[key]
+            elist.append([key, edict[key]])
         return elist
 
     def eventDayList(self, max=0):
         """ return upcoming events as list of day lists """
 
-        events = self.eventList()[:max - 1]
+        self.params['mode'] = 'upcoming'
+        events = self.eventList()
         day = []
         rez = []
         last_date = date(1900, 1, 1)
+        found = 0
         for e in events:
-            sdate = e['start']
+            sdate = e[0]
             if sdate != last_date:
                 if day:
-                    rez.append(day)
+                    rez.append([last_date, day])
                     day = []
                 last_date = sdate
-            day.append(e)
+            day += e[1]
+            found += len(day)
+            if found >= max:
+                break
         if day:
-            rez.append(day)
+            rez.append([last_date, day])
         return rez
 
     def myUrl(self, **overrides):
@@ -533,6 +555,7 @@ class EventQueryView(BrowserView):
         """ returns true if there's no gcid in the params """
         return self.params.get('gcid', None) is None
 
+    @memoize
     def showEventUrl(self):
         """ base url to display individual events """
 

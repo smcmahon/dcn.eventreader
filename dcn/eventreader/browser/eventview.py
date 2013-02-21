@@ -24,7 +24,9 @@ def csetFix(adict):
     for key in adict.keys():
         val = adict[key]
         if type(val) == type(''):
-            adict[key] = adict[key].decode('Windows-1252', 'replace')
+            if val.lower().startswith('javascript'):
+                val = ''
+            adict[key] = val.decode('Windows-1252', 'replace')
 
 
 class IEventView(Interface):
