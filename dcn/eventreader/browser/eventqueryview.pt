@@ -4,10 +4,16 @@
       xmlns:metal="http://xml.zope.org/namespaces/metal"
       metal:use-macro="here/main_template/macros/master"
       i18n:domain="dcn.eventreader">
+
+<head>
+<metal:block fill-slot="top_slot"
+                 tal:define="dummy python:request.set('disable_border',1);
+                             disable_column_two python:request.set('disable_plone.rightcolumn',1);" />
+</head>
+
 <body>
     <div metal:fill-slot="main">
-        <tal:main-macro metal:define-macro="main"
-            tal:define="disable_column_two python:request.set('disable_plone.rightcolumn',1)">
+        <tal:main-macro metal:define-macro="main">
 
           <div
             tal:define="event_base view/showEventUrl;
@@ -24,25 +30,26 @@
                 <h5 class="hiddenStructure">Mode</h5>
                 <ul id="calmode">
                   <li><a tal:attributes="href view/monthUrl; class python: mode=='month' and 'current-mode' or None">Month</a></li>
-                  <li><a tal:attributes="href view/weekUrl; class python: mode=='week' and 'current-mode' or None">Week</a></li>
-                  <li><a tal:attributes="href view/dayUrl; class python: mode=='day' and 'current-mode' or None">Day</a></li>
+                  <li><a tal:attributes="href view/weekUrl; class python: mode=='week' and 'current-mode' or None" rel="nofollow">Week</a></li>
+                  <li><a tal:attributes="href view/dayUrl; class python: mode=='day' and 'current-mode' or None" rel="nofollow">Day</a></li>
                 </ul>
 
                 <h5 class="hiddenStructure">Navigation</h5>
                 <ul id="calnav">
-                  <li><a tal:attributes="href view/prevUrl" class="arrow">&lt;</a></li>
+                  <li><a tal:attributes="href view/prevUrl" class="arrow" rel="nofollow">&lt;</a></li>
                   <li><a tal:attributes="href view/todayUrl; class python:request.form.get('date') and 'other-date' or 'current-date'">Today</a></li>
-                  <li><a tal:attributes="href view/nextUrl" class="arrow">&gt;</a></li>
+                  <li><a tal:attributes="href view/nextUrl" class="arrow" rel="nofollow">&gt;</a></li>
                 </ul>
 
                 <h2 class="currmonth" tal:content="view/getMonthYear" />
 
                 <div id="calcatbox">
                 <h5 class="hiddenStructure">Categories</h5>
-                <ul tal:define="cats view/getCats" tal:condition="cats" id="calcats">
+                <ul tal:define="cats view/getDisplayCats" tal:condition="cats" id="calcats">
                   <li tal:repeat="cat cats">
                     <a tal:attributes="href cat/url; class python:cat['current'] and 'current-cat' or None"
-                       tal:content="cat/title"
+                        tal:content="cat/title"
+                        rel="nofollow"
                        >A Category</a>
                   </li>
                 </ul>

@@ -4,6 +4,15 @@
     i18n_domain="dcn.eventreader">
 
   <browser:page
+      for="plone.app.layout.navigation.interfaces.INavigationRoot"
+      name="calendar"
+      class=".eventqueryview.EventQueryView"
+      template="eventqueryview.pt"
+      allowed_interface=".eventqueryview.IEventQueryView"
+      permission="zope.Public"
+      />
+
+  <browser:page
       for="*"
       name="eventquery_view"
       class=".eventqueryview.EventQueryView"

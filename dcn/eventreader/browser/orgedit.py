@@ -4,7 +4,8 @@
 
 """
 
-# Next to-do: validate count of org-specific categories
+# XXX To-do: validate count of org-specific categories
+# Make cancel do something useful
 
 
 from zope.component import getMultiAdapter
@@ -81,6 +82,19 @@ class IEventOrgSchema(form.Schema):
         required=False,
         )
 
+    ccal_link = schema.Choice(
+        title=u"Community Calendar Link",
+        description=u"""
+            Should we provide a link from the pooled community calendar
+            to your organization's calendar?
+            """,
+        vocabulary= SimpleVocabulary.fromItems((
+            (u'Yes', 1),
+            (u'No', 0)
+            )),
+        default=1,
+        )
+
     ##############
     # Categories Fieldset
     form.fieldset(
@@ -116,6 +130,7 @@ class IEventOrgSchema(form.Schema):
             calendar, but not the community calendar.
         """,
         value_type=schema.TextLine(),
+        required=False,
         )
 
     defaultMajorCats = schema.Set(
@@ -186,7 +201,8 @@ class EventOrgEditForm(form.SchemaForm):
         'alt_cal_url',
         'contact',
         'email',
-        'phone'
+        'phone',
+        'ccal_link',
         )
 
     def __init__(self, context, request):
@@ -215,10 +231,9 @@ class EventOrgEditForm(form.SchemaForm):
             setattr(obj, key, value)
 
         obj.org_categories = self.evq_view.getOrgCatList()
-
         return obj
 
-    @button.buttonAndHandler(u'Ok')
+    @button.buttonAndHandler(u'Save')
     def handleApply(self, action):
         data, errors = self.extractData()
 

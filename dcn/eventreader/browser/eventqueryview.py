@@ -128,8 +128,8 @@ class IEventQueryView(Interface):
     def getGlobalCats():
         """ returns a list of global categories """
 
-    def getOrgCats():
-        """ returns a list of this organization's categories """
+    def getDisplayCats():
+        """ returns a list of categories for display """
 
     def getOrgCatList(self):
         """ returns a list of this organization's category titles-only """
@@ -630,8 +630,18 @@ class EventQueryView(BrowserView):
         return self.getCats(oid=0)
 
     @memoize
-    def getOrgCats(self):
-        return self.getCats(oid=self.dbOrgId())
+    def getDisplayCats(self):
+        """ return an appropriate list of cats for display """
+
+        db_org_id = self.dbOrgId()
+        if db_org_id == 0:
+            return self.getCats(oid=0)
+        cat_options = getattr(self.navigation_root, 'catOptions', [])
+        if 'useOrgCats' in cat_options:
+            return self.getCats(oid=db_org_id)
+        if 'useMajorCats' in cat_options:
+            return self.getCats(oid=0)
+        return []
 
     def updateOrgCats(self, newlist):
         """
