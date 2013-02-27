@@ -6,7 +6,8 @@
       i18n:domain="dcn.eventreader">
 <body>
     <div metal:fill-slot="main">
-        <tal:main-macro metal:define-macro="main">
+        <tal:main-macro metal:define-macro="main"
+            tal:define="disable_column_two python:request.set('disable_plone.rightcolumn',1)">
 
           <div
             tal:define="event_base view/showEventUrl;

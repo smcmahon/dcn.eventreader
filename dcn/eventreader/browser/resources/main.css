@@ -151,3 +151,9 @@ ul#calcats {
 .calmode-day .caleventtitle {
     padding-top: 0.5em;
 }
+
+
+/* Select formatting */
+#s2id_form-widgets-catOptions {
+    min-width: 40em;
+}

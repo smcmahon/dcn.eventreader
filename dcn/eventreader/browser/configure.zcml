@@ -44,5 +44,18 @@
       directory="resources"
       />
 
+  <browser:page
+      for="plone.app.layout.navigation.interfaces.INavigationRoot"
+      name="event-edit"
+      class=".eventedit.EventEditForm"
+      permission="cmf.ModifyPortalContent"
+      />
+
+  <browser:page
+      for="plone.app.layout.navigation.interfaces.INavigationRoot"
+      name="eventorg-edit"
+      class=".orgedit.EventOrgEditForm"
+      permission="cmf.ModifyPortalContent"
+      />
 
 </configure>
