@@ -10,6 +10,7 @@ from Products.Five import BrowserView
 from DateTime import DateTime
 
 import param_utils
+from dbaccess import IEventDatabaseProvider
 
 # from Products.CMFCore.utils import getToolByName
 
@@ -17,16 +18,6 @@ import param_utils
 def dtToStr(dt):
     parts = dt.parts()
     return "%i/%i/%i" % (parts[1], parts[2], parts[0] % 1000)
-
-
-def csetFix(adict):
-    # convert dates to DateTimes and all strings from Windows-1252 to Unicode
-    for key in adict.keys():
-        val = adict[key]
-        if type(val) == type(''):
-            if val.lower().startswith('javascript'):
-                val = ''
-            adict[key] = val.decode('Windows-1252', 'replace')
 
 
 class IEventView(Interface):
@@ -61,66 +52,32 @@ class EventView(BrowserView):
     def __init__(self, context, request):
         self.context = context
         self.request = request
-        self.dbCal = aq_get(context, 'dbCal')
-        self.reader = self.dbCal()
+        self.database = IEventDatabaseProvider(context)
         self.portal_state = getMultiAdapter(
             (self.context, self.request),
             name=u'plone_portal_state'
             )
         self.navigation_root = self.portal_state.navigation_root()
-        # see if the nav root has a dbOrgId attribute. If it does, this
-        # will override any org specified in request
-        db_org_id = getattr(
-            aq_base(self.navigation_root),
-            'dbOrgId', ''
-            ).split(',')[0]
-        if db_org_id:
-            self.db_org_id = int(db_org_id)
-        else:
-            self.db_org_id = -1
+        self.db_org_id = getattr(aq_base(self.navigation_root), 'dbOrgId', 0)
         self.params = param_utils.getQueryParams(request)
         self.eid = self.params['eid']
 
     def getEvent(self):
         """ find an event by eid """
 
-        if self.eid is None:
-            return None
-
-        query = """
-            SELECT *,
-             TIME_FORMAT(startTime, "%%l:%%i %%p") as begins,
-             TIME_FORMAT(endTime, "%%l:%%i %%p") as ends
-            FROM Events
-            WHERE eid = %i
-        """ % (self.eid)
-
-        dicts = Results(self.reader.query(query)).dictionaries()
-        if len(dicts):
-            csetFix(dicts[0])
-            return dicts[0]
-        else:
-            return None
+        return self.database.getEvent(self.eid)
 
     def getEventDates(self):
         """ create a list of the dates associated with the
             event. consolidate ranges.
         """
 
-        if self.eid is None:
-            return None
-
-        query = """
-            SELECT * from EvDates
-            WHERE eid = %i
-            ORDER BY sdate
-        """ % (self.eid)
-
+        dates = self.database.getEventDates(self.eid)
         res = []
         in_series = False
         last_date = DateTime('1/1/1900')
         s = u''
-        for item in Results(self.reader.query(query)):
+        for item in dates:
             if item.sdate == item.edate:
                 if item.sdate - last_date <= 1:
                     in_series = True
@@ -163,27 +120,16 @@ class EventView(BrowserView):
             return begins
         return u"%s–%s" % (begins, ends)
 
-    def needOrg(self):
+    def needOrg(self, oid):
         """ do we need to show organizational details? """
 
-        # Yes, unless organization was determined as
-        # a site attribute
-        return self.db_org_id == -1
+        # Yes, unless oid of event matches that from nav root
+        return self.db_org_id != oid
 
     def getOrg(self, oid):
         """ return a dict for the organization """
 
-        query = """
-            SELECT * from Orgs
-            WHERE oid = %i
-        """ % int(oid)
-
-        dicts = Results(self.reader.query(query)).dictionaries()
-        if len(dicts):
-            csetFix(dicts[0])
-            return dicts[0]
-        else:
-            return None
+        return self.database.getOrgData(oid)
 
     def getParams(self):
         """ get the useful params as a dict """

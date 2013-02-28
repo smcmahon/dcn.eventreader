@@ -3,6 +3,16 @@
     xmlns:browser="http://namespaces.zope.org/browser"
     i18n_domain="dcn.eventreader">
 
+  <browser:resourceDirectory
+      name="dcn.eventreader"
+      directory="resources"
+      />
+
+  <adapter for="*"
+     provides=".dbaccess.IEventDatabaseProvider"
+     factory=".dbaccess.EventDatabaseProvider"
+     />
+
   <browser:page
       for="plone.app.layout.navigation.interfaces.INavigationRoot"
       name="calendar"
@@ -46,11 +56,6 @@
       template="eventview.pt"
       allowed_interface=".eventview.IEventView"
       permission="zope.Public"
-      />
-
-  <browser:resourceDirectory
-      name="dcn.eventreader"
-      directory="resources"
       />
 
   <browser:page

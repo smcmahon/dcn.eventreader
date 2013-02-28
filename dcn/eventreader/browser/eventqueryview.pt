@@ -19,12 +19,8 @@
             tal:define="event_base view/showEventUrl;
                         mode view/getMode;
                         events view/eventMonth;
-                        dbOrgId view/dbOrgId"
+                        use_acronyms view/useAcronyms"
             tal:attributes="class string:calmode-$mode">
-
-            <tal:block tal:condition="python: dbOrgId">
-              <h1>Org Name</h1>
-            </tal:block>
 
             <div id="calheader">
                 <h5 class="hiddenStructure">Mode</h5>
@@ -73,7 +69,7 @@
                         <li tal:repeat="event eday/events" class="caleventtitle" >
                             <span tal:content="event/begins" tal:condition="python:event['begins'] != '12:00am'" class="eventtime" />
                             <acronym
-                              tal:condition="python: mode != 'day' and event.get('acronym') and not dbOrgId"
+                              tal:condition="python: use_acronyms and event.get('acronym')"
                               tal:content="event/acronym"
                               tal:attributes="title event/orgname">acronym</acronym>
                             <a href="#"

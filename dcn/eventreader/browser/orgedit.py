@@ -8,7 +8,6 @@
 # Make cancel do something useful
 
 
-from zope.component import getMultiAdapter
 from zope import interface
 from zope import schema
 from zope.schema.vocabulary import SimpleVocabulary
@@ -17,6 +16,8 @@ from z3c.form import button
 
 from plone.directives import form
 from plone.app.layout.navigation.interfaces import INavigationRoot
+
+from dbaccess import IEventDatabaseProvider
 
 # from Products.statusmessages.interfaces import IStatusMessage
 
@@ -27,11 +28,11 @@ cat_options = SimpleVocabulary.fromItems((
 
 
 @interface.implementer(schema.interfaces.IContextSourceBinder)
-class orgCatSource(object):
+class majorCatSource(object):
     def __call__(self, context):
-        cats = context._view.getCats(include_all=False)
+        cats = context._database.getCats()
         items = [
-            (i['title'], i['gcid'])
+            (i.title, i.gcid)
             for i in cats
         ]
         return SimpleVocabulary.fromItems(items)
@@ -88,7 +89,7 @@ class IEventOrgSchema(form.Schema):
             Should we provide a link from the pooled community calendar
             to your organization's calendar?
             """,
-        vocabulary= SimpleVocabulary.fromItems((
+        vocabulary=SimpleVocabulary.fromItems((
             (u'Yes', 1),
             (u'No', 0)
             )),
@@ -143,7 +144,7 @@ class IEventOrgSchema(form.Schema):
             If not, these will always be applied.
         """,
         required=False,
-        value_type=schema.Choice(source=orgCatSource())
+        value_type=schema.Choice(source=majorCatSource())
         )
 
     ##############
@@ -206,11 +207,12 @@ class EventOrgEditForm(form.SchemaForm):
         )
 
     def __init__(self, context, request):
+        assert(INavigationRoot.providedBy(context))
         super(EventOrgEditForm, self).__init__(context, request)
+        self.database = IEventDatabaseProvider(context)
         request['disable_border'] = 1
         request['disable_plone.rightcolumn'] = 1
-        self.evq_view = getMultiAdapter((self.context, self.request), name=u'eventquery_view')
-        assert(INavigationRoot.providedBy(self.context))
+        # self.evq_view = getMultiAdapter((self.context, self.request), name=u'eventquery_view')
 
     def getContent(self):
         """
@@ -219,18 +221,18 @@ class EventOrgEditForm(form.SchemaForm):
 
         obj = OrgContext()
         # orgCatSource will need to be able to get at the events query view
-        obj._view = self.evq_view
+        obj._database = self.database
 
         for key in EventOrgEditForm.context_attributes:
             value = getattr(self.context, key, '')
             setattr(obj, key, value)
 
-        org_data = self.evq_view.getOrgData()
+        org_data = self.database.getOrgData()
         for key in EventOrgEditForm.database_attributes:
             value = org_data.get(key)
             setattr(obj, key, value)
 
-        obj.org_categories = self.evq_view.getOrgCatList()
+        obj.org_categories = [c.title for c in self.database.getOrgCats()]
         return obj
 
     @button.buttonAndHandler(u'Save')
@@ -248,9 +250,9 @@ class EventOrgEditForm(form.SchemaForm):
         org_data = {}
         for key in EventOrgEditForm.database_attributes:
             org_data[key] = data.get(key)
-        self.evq_view.updateOrgData(**org_data)
+        self.database.updateOrgData(**org_data)
 
-        self.evq_view.updateOrgCats(data.get('org_categories', []))
+        self.database.updateOrgCats(data.get('org_categories', []))
 
         # Set status on this form page
         # (this status message is not bound to the session

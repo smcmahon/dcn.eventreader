@@ -1,70 +1,32 @@
 import calendar
 from datetime import date
 from datetime import timedelta
-import types
 
 from Acquisition import aq_get, aq_base
 from zope.i18nmessageid import MessageFactory
 from zope.interface import implements, Interface
 from zope.component import getMultiAdapter
-from Shared.DC.ZRDB.Results import Results
-from DateTime import DateTime
 
 from plone.memoize.instance import memoize
 
 from Products.Five import BrowserView
-
 from Products.CMFCore.utils import getToolByName
 
 import param_utils
-
-# from dcn.eventreader import eventreaderMessageFactory as _
+from dbaccess import IEventDatabaseProvider
+from dbaccess import decodeString
+from dbaccess import decodeStrings
 
 import caldate
 
+# from dcn.eventreader import eventreaderMessageFactory as _
 PLMF = MessageFactory('plonelocales')
-
-
-# decode string from win1252
-def decodeString(val):
-    return val.decode('Windows-1252', 'replace')
-
-
-# decode a dict of strings from win1252
-def decodeStrings(adict):
-    for key in adict.keys():
-        val = adict[key]
-        if type(val) == type(''):
-            adict[key] = decodeString(adict[key])
-
-
-# encode string from win1252
-def encodeString(val):
-    return val.encode('Windows-1252', 'replace')
-
-
-# decode a dict of strings from win1252
-def encodeStrings(adict):
-    for key in adict.keys():
-        val = adict[key]
-        if type(val) == type(u''):
-            adict[key] = encodeString(adict[key])
 
 
 class IEventQueryView(Interface):
     """
     EventQuery view interface
     """
-
-    def getOrgData(self):
-        """
-        Returns organization's data as a dict
-        """
-
-    def updateOrgData(self, **kwa):
-        """
-            kwa should be a dict with keys matching orgs columns
-        """
 
     def getWeekdays():
         """Returns a list of Messages for the weekday names."""
@@ -125,15 +87,8 @@ class IEventQueryView(Interface):
     def getCats():
         """ return a list of categories in alpha order unless suppressed """
 
-    def getGlobalCats():
-        """ returns a list of global categories """
-
     def getDisplayCats():
         """ returns a list of categories for display """
-
-    def getOrgCatList(self):
-        """ returns a list of this organization's category titles-only """
-
     def allCatsUrl():
         """ url with no gcid """
 
@@ -143,10 +98,8 @@ class IEventQueryView(Interface):
     def showEventUrl():
         """ base url to display individual events """
 
-    def dbOrgId():
-        """ return dbOrgId as specified in nav root;
-            returns 0 if not specified or was a list.
-        """
+    def useAcronyms():
+        """ should we display acronyms? """
 
     def setParam(self, **kwa):
         """ set params directly, typically from a template """
@@ -165,15 +118,18 @@ class EventQueryView(BrowserView):
     def __init__(self, context, request):
         self.context = context
         self.request = request
-        self.dbCal = aq_get(context, 'dbCal')
-        self.reader = self.dbCal()
+        self.database = IEventDatabaseProvider(context)
         self.portal_calendar = getToolByName(context, 'portal_calendar')
-        self._ts = getToolByName(self.context, 'translation_service')
         self.portal_state = getMultiAdapter((self.context, self.request), name=u'plone_portal_state')
         self.navigation_root = self.portal_state.navigation_root()
-        # see if the nav root has a dbOrgId attribute. If it does, this
-        # will override any org specified in request
-        self.db_org_id = param_utils.strToIntList(getattr(aq_base(self.navigation_root), 'dbOrgId', ''))
+        # get db_org_id from the nav root or set to 0
+        self.db_org_id = getattr(aq_base(self.navigation_root), 'dbOrgId', 0)
+        # get dbOrgList from anywhere in aq chain
+        self.db_org_list = param_utils.strToIntList(
+            aq_get(self.navigation_root, 'dbOrgList', '')
+            )
+        if not self.db_org_list and self.db_org_id:
+            self.db_org_list = [self.db_org_id]
         self.context_state = getMultiAdapter((self.context, self.request), name=u'plone_context_state')
         self.today = date.today()
 
@@ -186,7 +142,7 @@ class EventQueryView(BrowserView):
         param_utils.consolidateParams(vals, svals)
 
         # If no org set, always show public, community
-        if not (self.db_org_id or vals.get('org')):
+        if not (self.db_org_list or vals.get('org')):
             vals['public'] = 'y'
             vals['common'] = 'y'
             # so they don't show up on URLs:
@@ -195,47 +151,13 @@ class EventQueryView(BrowserView):
 
         self.params = vals
 
-    def sql_quote(self, astring):
-        return self.dbCal.sql_quote__(astring)
-
     @memoize
     def getOrgData(self):
         """
         Returns organization's data as a dict
         """
 
-        query = """
-            SELECT * FROM Orgs WHERE oid = %s
-        """ % (self.db_org_id[0])
-
-        dicts = Results(self.reader.query(query)).dictionaries()
-        if len(dicts) == 1:
-            adict = dicts[0]
-            decodeStrings(adict)
-            return adict
-        else:
-            return None
-
-    def updateOrgData(self, **kwa):
-        """
-            kwa should be a dict with keys matching orgs columns
-        """
-
-        assignments = []
-        for key in kwa.keys():
-            assert(key.replace('_', '').isalnum())
-            val = kwa[key]
-            if val is None:
-                val = ''
-            if type(val) == type(u''):
-                val = encodeString(val)
-            assignments.append("""%s=%s""" % (key, self.sql_quote(val)))
-        query = """
-            UPDATE Orgs
-            SET %s
-            WHERE oid=%s
-        """ % (", ".join(assignments), int(self.dbOrgId()))
-        self.reader.query(query)
+        return self.database.getOrgData(self.db_org_id)
 
     def eventsByDateRange(self, start, end):
         """
@@ -244,81 +166,9 @@ class EventQueryView(BrowserView):
         Also, optionally, selects by several criteria
         """
 
-        kwa = self.params
-
-        oid = self.db_org_id or kwa.get('org')
-        if oid:
-            oid_test = "AND e.oid in (%s)" % ','.join([str(int(i)) for i in oid])
-        else:
-            oid_test = ""
-
-        public = kwa.get('public', 'b')
-        if public != 'b':
-            public_test = "AND e.public = %s" % self.sql_quote(public)
-        else:
-            public_test = ""
-
-        free = kwa.get('free', 'b')
-        if free != 'b':
-            free_test = "AND e.free = %s" % self.sql_quote(free)
-        else:
-            free_test = ""
-
-        common = kwa.get('common', 'b')
-        if common != 'b':
-            common_test = "AND e.community = %s" % self.sql_quote(common)
-        else:
-            common_test = ""
-
-        udf1 = kwa.get('udf1')
-        if udf1 is None:
-            udf1_test = ""
-        else:
-            udf1_test = "AND e.udf1 = %s" % self.sql_quote(udf1)
-
-        udf2 = kwa.get('udf2')
-        if udf2 is None:
-            udf2_test = ""
-        else:
-            udf2_test = "AND e.udf2 = %s" % self.sql_quote(udf2)
-
-        gcid = kwa.get('gcid')
-        if gcid is None:
-            gcid_test = ""
-            gcid_from = ""
-        else:
-            gcid_test = "AND EvCats.eid = ev.eid AND EvCats.gcid = %d" % gcid
-            gcid_from = ", EvCats"
-
-        query = """
-            SELECT DISTINCT e.eid, e.title, e.description, e.startTime, e.endTime, e.location, e.eventUrl,
-             o.acronym, o.name as orgname, o.url,
-             DATE_FORMAT(ev.sdate, "%%Y-%%m-%%d") as start,
-             DATE_FORMAT(ev.edate, "%%Y-%%m-%%d") as end,
-             TIME_FORMAT(e.startTime, "%%l:%%i %%p") as begins,
-             TIME_FORMAT(e.endTime, "%%l:%%i %%p") as ends,
-             ev.recurs
-             FROM EvDates ev, Events e, Orgs o %s
-             WHERE
-               (ev.sdate >= "%s") AND (ev.edate <= "%s")
-               AND ev.eid = e.eid
-               AND o.oid = e.oid
-               %s
-               %s %s %s %s %s %s
-            ORDER BY ev.sdate, e.startTime, e.title
-        """ % (gcid_from, cleanDate(start), cleanDate(end), oid_test, public_test, free_test, common_test, udf1_test, udf2_test, gcid_test)
-
-        dicts = Results(self.reader.query(query)).dictionaries()
-
-        # convert dates to DateTimes and all strings from Windows-1252 to Unicode
-        for adict in dicts:
-            for s in ('start', 'end'):
-                adict[s] = caldate.parseDateString(adict[s])
-            for s in ('begins', 'ends'):
-                adict[s] = adict[s].replace(' ', '').lower()
-            decodeStrings(adict)
-
-        return dicts
+        return self.database.eventsByDateRange(
+            start, end, self.db_org_list, **self.params
+            )
 
     def eventsByDay(self, start, end):
         """
@@ -410,12 +260,6 @@ class EventQueryView(BrowserView):
         weekdays = list(calendar.day_name)
         weekdays.insert(0, weekdays.pop())
         return weekdays
-        # # list of ordered weekdays as numbers
-        # for day in self.portal_calendar.getDayNumbers():
-        #     weekdays.append(PLMF(self._ts.day_msgid(day, format='s'),
-        #                          default=self._ts.weekday_english(day)))
-
-        # return weekdays
 
     def getParams(self):
         """ get params """
@@ -598,15 +442,6 @@ class EventQueryView(BrowserView):
     def getCats(self, oid=0, include_all=True):
         """ return a list of categories in alpha order unless suppressed """
 
-        if self.params.get('nocat-display'):
-            return []
-
-        query = """
-            select title, gcid from GlobalCategories
-            where oid = %i
-            order by title
-        """ % oid
-
         current_gcid = self.params.get('gcid', -1)
         if include_all:
             res = [{
@@ -616,7 +451,7 @@ class EventQueryView(BrowserView):
                 }]
         else:
             res = []
-        for item in Results(self.reader.query(query)):
+        for item in self.database.getCats(oid=oid):
             res.append({
                 'title': decodeString(item.title),
                 'gcid': item.gcid,
@@ -626,14 +461,12 @@ class EventQueryView(BrowserView):
         return res
 
     @memoize
-    def getGlobalCats(self):
-        return self.getCats(oid=0)
-
-    @memoize
     def getDisplayCats(self):
         """ return an appropriate list of cats for display """
 
-        db_org_id = self.dbOrgId()
+        if self.params.get('nocat-display'):
+            return []
+        db_org_id = self.db_org_id
         if db_org_id == 0:
             return self.getCats(oid=0)
         cat_options = getattr(self.navigation_root, 'catOptions', [])
@@ -642,64 +475,6 @@ class EventQueryView(BrowserView):
         if 'useMajorCats' in cat_options:
             return self.getCats(oid=0)
         return []
-
-    def updateOrgCats(self, newlist):
-        """
-            We've received a new list of categories. We need
-            to compare it with the existing list to see what's
-            changed. Additions need to be added to the global
-            category list; deletions need to be removed from
-            that list and the evCats table that ties events to
-            categories.
-        """
-
-        # Get the old list, put it into a dict keyed on titles
-        db_org_id = self.dbOrgId()
-        query = """
-            select title, gcid from GlobalCategories
-            where oid = %i
-        """ % db_org_id
-        old_cats = {}
-        for item in Results(self.reader.query(query)):
-            old_cats[decodeString(item.title)] = str(item.gcid)
-        to_add = []
-        for cat in newlist:
-            if cat in old_cats:
-                del old_cats[cat]
-            else:
-                to_add.append(self.sql_quote(cat))
-        to_delete = old_cats.values()
-
-        # add new categories
-        if to_add:
-            inserts = []
-            for cat in to_add:
-                cat = self.sql_quote(encodeString(cat))
-                inserts.append("(0, %s, %s, 0)" % (cat, db_org_id))
-            query = """
-                INSERT INTO GlobalCategories values
-                %s""" % ", ".join(inserts)
-            self.reader.query(query)
-
-        # delete old, unused categories
-        if to_delete:
-            query = """
-                DELETE from GlobalCategories
-                WHERE gcid IN (%s)""" % ", ".join(to_delete)
-            self.reader.query(query)
-            # and category/event links
-            query = """
-                DELETE from EvCats
-                WHERE gcid IN (%s)""" % ", ".join(to_delete)
-            self.reader.query(query)
-
-    def getOrgCatList(self):
-        res = []
-        for cat in self.getCats(oid=self.dbOrgId()):
-            title = cat['title']
-            if title != 'All':
-                res.append(title)
-        return res
 
     def allCatsUrl(self):
         """ url with no gcid """
@@ -715,11 +490,12 @@ class EventQueryView(BrowserView):
 
         return "%s/showEvent?eid=" % self.portal_state.navigation_root_url()
 
-    def dbOrgId(self):
-        """ return dbOrgId as specified in nav root;
-            returns 0 if not specified or was a list.
-        """
-        return len(self.db_org_id) == 1 and self.db_org_id[0] or 0
+    @memoize
+    def useAcronyms(self):
+        """ should we display acronyms? """
+
+        return (self.db_org_id or self.db_org_list) and self.getMode() != 'day'
+
 
     def setParam(self, **kwa):
         """ set params directly, typically from a template """

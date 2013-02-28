@@ -1,5 +1,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en"
       lang="en"
+      xmlns:tal="http://xml.zope.org/namespaces/tal"
+      xmlns:metal="http://xml.zope.org/namespaces/metal"
       metal:use-macro="here/main_template/macros/master"
       i18n:domain="dcn.eventreader">
 <body>
@@ -78,7 +80,7 @@
           </div>
 
           <div class="eventDetails vcard"
-              tal:define="org python:view.needOrg() and view.getOrg(event['oid'])"
+              tal:define="org python:view.needOrg(event['oid']) and view.getOrg(event['oid'])"
               tal:condition="org">
             <h2>Organization</h2>
 
