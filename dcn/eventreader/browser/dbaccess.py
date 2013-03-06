@@ -296,14 +296,14 @@ class EventDatabaseProvider(object):
              ev.recurs
              FROM EvDates ev, Events e, Orgs o %s
              WHERE
-               (ev.sdate >= "%s") AND (ev.edate <= "%s")
+               (ev.sdate <= "%s") AND (ev.edate >= "%s")
                AND ev.eid = e.eid
                AND o.oid = e.oid
                %s
                %s %s %s %s %s %s
             ORDER BY ev.sdate, e.startTime, e.title
         """ % (
-            gcid_from, cleanDate(start), cleanDate(end),
+            gcid_from, cleanDate(end), cleanDate(start),
             oid_test, public_test, free_test, common_test,
             udf1_test, udf2_test, gcid_test,
             )
@@ -340,12 +340,27 @@ class EventDatabaseProvider(object):
 
     def getEventDates(self, eid):
         """ return a list of the dates associated with the
-            event as objects.
+            event -- as objects.
         """
 
         query = """
-            SELECT * from EvDates
+            SELECT *,
+                DATE_FORMAT(sdate, "%%Y-%%m-%%d") as start,
+                DATE_FORMAT(edate, "%%Y-%%m-%%d") as end
+            FROM EvDates
             WHERE eid = %i
             ORDER BY sdate
         """ % (eid)
         return Results(self.reader.query(query))
+
+    def getEventCats(self, eid):
+        """ return a list of the categories associated with the
+            event -- as gcids.
+        """
+
+        query = """
+            SELECT gcid from EvCats
+            WHERE eid = %i
+        """ % (eid)
+        return Results(self.reader.query(query))
+

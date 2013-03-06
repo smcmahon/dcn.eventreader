@@ -180,7 +180,7 @@ class EventQueryView(BrowserView):
         query = self.eventsByDateRange(start, end)
         # get the dates, taking recurrence into account
         for result in query:
-            recurs = getattr(result, 'recurs', 'daily')
+            recurs = result.get('recurs', 'daily')
             estart = result['start']
             ldate = min(end, result['end'])
             if recurs == 'weekly':
@@ -494,7 +494,7 @@ class EventQueryView(BrowserView):
     def useAcronyms(self):
         """ should we display acronyms? """
 
-        return (self.db_org_id or self.db_org_list) and self.getMode() != 'day'
+        return not (self.db_org_id or self.db_org_list) and self.getMode() != 'day'
 
 
     def setParam(self, **kwa):

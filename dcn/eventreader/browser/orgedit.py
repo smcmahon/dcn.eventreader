@@ -220,7 +220,7 @@ class EventOrgEditForm(form.SchemaForm):
         """
 
         obj = OrgContext()
-        # orgCatSource will need to be able to get at the events query view
+        # orgCatSource will need to be able to get at the database
         obj._database = self.database
 
         for key in EventOrgEditForm.context_attributes:

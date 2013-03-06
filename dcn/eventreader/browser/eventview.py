@@ -20,6 +20,49 @@ def dtToStr(dt):
     return "%i/%i/%i" % (parts[1], parts[2], parts[0] % 1000)
 
 
+def getEventDateRep(dates):
+    """ create a string representation list of the dates associated with the
+        event. consolidate ranges.
+    """
+
+    res = []
+    in_series = False
+    last_date = DateTime('1/1/1900')
+    s = u''
+    for item in dates:
+        if item.sdate == item.edate:
+            if item.sdate - last_date <= 1:
+                in_series = True
+            else:
+                if in_series:
+                    s = u"%s–%s" % (s, dtToStr(last_date))
+                    in_series = False
+                # else:
+                #     s = dtToStr(item.sdate)
+                s = u"%s%s%s" % (s, s and ', ' or '', dtToStr(item.sdate))
+        else:
+            if in_series:
+                s = u"%s-%s" % (s, dtToStr(last_date))
+                in_series = False
+            if s:
+                res.append(s)
+                s = u''
+            res.append(
+                u"%s %s until %s" % (
+                    dtToStr(item.sdate),
+                    item.recurs,
+                    dtToStr(item.edate)
+                    )
+                )
+        last_date = item.sdate
+
+    if in_series:
+        s = "%s-%s" % (s, dtToStr(last_date))
+    if s:
+        res.append(s)
+    return 'x, '.join(res)
+
+
 class IEventView(Interface):
     """
     Event view interface
@@ -68,43 +111,11 @@ class EventView(BrowserView):
         return self.database.getEvent(self.eid)
 
     def getEventDates(self):
-        """ create a list of the dates associated with the
-            event. consolidate ranges.
+        """
+            Return a display list of dates.
         """
 
-        dates = self.database.getEventDates(self.eid)
-        res = []
-        in_series = False
-        last_date = DateTime('1/1/1900')
-        s = u''
-        for item in dates:
-            if item.sdate == item.edate:
-                if item.sdate - last_date <= 1:
-                    in_series = True
-                else:
-                    if in_series:
-                        s = u"%s–%s" % (s, dtToStr(last_date))
-                        in_series = False
-                    # else:
-                    #     s = dtToStr(item.sdate)
-                    s = u"%s%s%s" % (s, s and ', ' or '', dtToStr(item.sdate))
-            else:
-                if in_series:
-                    s = u"%s-%s" % (s, dtToStr(last_date))
-                    in_series = False
-                if s:
-                    res.append(s)
-                    s = u''
-                res.append(
-                    u"%s %s until %s" % (item.sdate, item.recurs, item.edate)
-                    )
-            last_date = item.sdate
-
-        if in_series:
-            s = "%s-%s" % (s, dtToStr(last_date))
-        if s:
-            res.append(s)
-        return 'x, '.join(res)
+        return getEventDateRep(self.database.getEventDates(self.eid))
 
     def displayTime(self, event):
         """ start/end time for display; None if all-day """
