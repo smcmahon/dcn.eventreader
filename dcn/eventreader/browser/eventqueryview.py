@@ -101,8 +101,11 @@ class IEventQueryView(Interface):
     def useAcronyms():
         """ should we display acronyms? """
 
-    def setParam(self, **kwa):
+    def setParam():
         """ set params directly, typically from a template """
+
+    def editMode():
+        """ are we in edit mode? """
 
 
 def cleanDate(adate):
@@ -116,6 +119,7 @@ class EventQueryView(BrowserView):
     implements(IEventQueryView)
 
     def __init__(self, context, request):
+        self.editing = False
         self.context = context
         self.request = request
         self.database = IEventDatabaseProvider(context)
@@ -510,3 +514,24 @@ class EventQueryView(BrowserView):
                 # that this method is called from a template.
                 self.site_params[key] = val
 
+    def editMode(self):
+        """ are we in edit mode? """
+
+        return self.editing
+
+
+class EventEditQueryView(EventQueryView):
+    """
+    EventQuery browser view
+    """
+    implements(IEventQueryView)
+
+    def __init__(self, context, request):
+        super(EventEditQueryView, self).__init__(context, request)
+        self.editing = True
+
+    @memoize
+    def showEventUrl(self):
+        """ base url to display individual events """
+
+        return "%s/event-edit?eid=" % self.portal_state.navigation_root_url()

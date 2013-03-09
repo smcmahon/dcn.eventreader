@@ -30,10 +30,18 @@
       />
 
   <browser:page
+      for="plone.app.layout.navigation.interfaces.INavigationRoot"
+      name="caledit"
+      class=".eventqueryview.EventEditQueryView"
+      template="eventqueryview.pt"
+      allowed_interface=".eventqueryview.IEventQueryView"
+      permission="cmf.ModifyPortalContent"
+      />
+
+  <browser:page
       for="*"
       name="eventquery_view"
       class=".eventqueryview.EventQueryView"
-      template="eventqueryview.pt"
       allowed_interface=".eventqueryview.IEventQueryView"
       permission="zope.Public"
       />

@@ -137,6 +137,20 @@ class IEventEditForm(form.Schema):
             required=False,
         )
 
+    ##############
+    # Categories Fieldset
+    form.fieldset(
+        'categories',
+        label=u"Categories",
+        description=u"""
+            Your events may be tagged as belonging to categories.
+            Community-calendar categories only show on the community calendar.
+            The organization-specific categories will only
+            show on your own calendar.
+            """,
+        fields=['majorCats', 'orgCats']
+    )
+
     majorCats = schema.Set(
         title=u"Community Calendar Categories",
         description=u"""
