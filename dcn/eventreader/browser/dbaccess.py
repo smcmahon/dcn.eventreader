@@ -6,7 +6,7 @@ Database access
 
 import Acquisition
 
-from zope.component import getMultiAdapter
+# from zope.component import getMultiAdapter
 from zope import interface
 
 from Shared.DC.ZRDB.Results import Results
@@ -17,16 +17,14 @@ import caldate
 
 
 class IEventDatabaseProvider(interface.Interface):
+    """
+        Read access to event database
+    """
 
     def getOrgData(self):
             """
             Returns organization's data as a dict
             """
-
-    def updateOrgData(self, **kwa):
-        """
-            kwa should be a dict with keys matching orgs columns
-        """
 
     def getCats(self, oid=0):
         """
@@ -38,15 +36,6 @@ class IEventDatabaseProvider(interface.Interface):
         """
             return a list of category objects for the
             context organization
-        """
-    def updateOrgCats(self, newlist):
-        """
-            We've received a new list of categories. We need
-            to compare it with the existing list to see what's
-            changed. Additions need to be added to the global
-            category list; deletions need to be removed from
-            that list and the evCats table that ties events to
-            categories.
         """
 
     def eventsByDateRange(self, start, end, org_list, **kwa):
@@ -63,6 +52,63 @@ class IEventDatabaseProvider(interface.Interface):
     def getEventDates(self, eid):
         """ return a list of the dates associated with the
             event as objects.
+        """
+
+
+class IEventDatabaseWriteProvider(interface.Interface):
+    """
+        Write access to event database
+    """
+
+    def updateOrgData(self, **kwa):
+        """
+            kwa should be a dict with keys matching orgs columns
+        """
+
+    def updateOrgCats(self, newlist):
+        """
+            We've received a new list of categories. We need
+            to compare it with the existing list to see what's
+            changed. Additions need to be added to the global
+            category list; deletions need to be removed from
+            that list and the evCats table that ties events to
+            categories.
+        """
+
+    def deleteEvent(self, eid):
+        """
+            Delete an event
+        """
+
+    def deleteEventDates(self, eid):
+        """
+            Delete an event's dates
+        """
+
+    def deleteEventCats(self, eid):
+        """
+            Delete an event's categories
+        """
+
+    def evCatsInsert(self, eid, gcids):
+        """
+            insert categories for event
+            eid is a unique event id
+            gcids is a sequence of category ids for the event
+        """
+
+    def evDatesInsert(self, eid, dates):
+        """
+            Update EvDates table with dates for an event
+            eid is unique id of matching event
+            dates is a sequence of tuples (start, end, recurs)
+            start, end are datetime dates.
+        """
+
+    def updateEvent(self, eid, user_name, **kwa):
+        """
+            kwa should dereference to a dict of values
+            keyed by column
         """
 
 
@@ -135,29 +181,6 @@ class EventDatabaseProvider(object):
         else:
             return None
 
-    def updateOrgData(self, **kwa):
-        """
-            kwa should be a dict with keys matching orgs columns
-        """
-
-        assert(self.db_org_id != 0)
-
-        assignments = []
-        for key in kwa.keys():
-            assert(key.replace('_', '').isalnum())
-            val = kwa[key]
-            if val is None:
-                val = ''
-            if type(val) == type(u''):
-                val = encodeString(val)
-            assignments.append("""%s=%s""" % (key, self._sql_quote(val)))
-        query = """
-            UPDATE Orgs
-            SET %s
-            WHERE oid=%s
-        """ % (", ".join(assignments), int(self.db_org_id))
-        self.reader.query(query)
-
     def getCats(self, oid=0):
         """
             return a list of category objects in alpha title order.
@@ -179,57 +202,6 @@ class EventDatabaseProvider(object):
         """
 
         return self.getCats(oid=self.db_org_id)
-
-    def updateOrgCats(self, newlist):
-        """
-            We've received a new list of categories. We need
-            to compare it with the existing list to see what's
-            changed. Additions need to be added to the global
-            category list; deletions need to be removed from
-            that list and the evCats table that ties events to
-            categories.
-        """
-
-        assert(self.db_org_id != 0)
-
-        # Get the old list, put it into a dict keyed on titles
-        query = """
-            select title, gcid from GlobalCategories
-            where oid = %i
-        """ % self.db_org_id
-        old_cats = {}
-        for item in Results(self.reader.query(query)):
-            old_cats[decodeString(item.title)] = str(item.gcid)
-        to_add = []
-        for cat in newlist:
-            if cat in old_cats:
-                del old_cats[cat]
-            else:
-                to_add.append(cat)
-        to_delete = old_cats.values()
-
-        # add new categories
-        if to_add:
-            inserts = []
-            for cat in to_add:
-                cat = self._sql_quote(encodeString(cat))
-                inserts.append("(0, %s, %s, 0)" % (cat, self.db_org_id))
-            query = """
-                INSERT INTO GlobalCategories values
-                %s""" % ", ".join(inserts)
-            self.reader.query(query)
-
-        # delete old, unused categories
-        if to_delete:
-            query = """
-                DELETE from GlobalCategories
-                WHERE gcid IN (%s)""" % ", ".join(to_delete)
-            self.reader.query(query)
-            # and category/event links
-            query = """
-                DELETE from EvCats
-                WHERE gcid IN (%s)""" % ", ".join(to_delete)
-            self.reader.query(query)
 
     def eventsByDateRange(self, start, end, org_list, **kwa):
         """
@@ -364,3 +336,200 @@ class EventDatabaseProvider(object):
         """ % (eid)
         return Results(self.reader.query(query))
 
+
+class EventDatabaseWriteProvider(object):
+    """
+        Provides event database write methods
+    """
+
+    interface.implements(IEventDatabaseProvider)
+
+    def __init__(self, context):
+        self.context = context
+        self.dbCal = Acquisition.aq_get(context, 'dbCalWriter')
+        self.reader = self.dbCal()
+        if INavigationRoot.providedBy(context):
+            self.db_org_id = getattr(context, 'dbOrgId', 0)
+        else:
+            self.db_org_id = 0
+        assert(self.db_org_id != 0)
+
+    def _sql_quote(self, astring):
+        return self.dbCal.sql_quote__(astring)
+
+    def updateOrgData(self, **kwa):
+        """
+            kwa should be a dict with keys matching orgs columns
+        """
+
+        assignments = []
+        for key in kwa.keys():
+            assert(key.replace('_', '').isalnum())
+            val = kwa[key]
+            if val is None:
+                val = ''
+            if type(val) == type(u''):
+                val = encodeString(val)
+            assignments.append("""%s=%s""" % (key, self._sql_quote(val)))
+        query = """
+            UPDATE Orgs
+            SET %s
+            WHERE oid=%s
+        """ % (", ".join(assignments), int(self.db_org_id))
+        self.reader.query(query)
+
+    def updateOrgCats(self, newlist):
+        """
+            We've received a new list of org categories. We need
+            to compare it with the existing list to see what's
+            changed. Additions need to be added to the global
+            category list; deletions need to be removed from
+            that list and the evCats table that ties events to
+            categories.
+        """
+
+        # Get the old list, put it into a dict keyed on titles
+        query = """
+            select title, gcid from GlobalCategories
+            where oid = %i
+        """ % self.db_org_id
+        old_cats = {}
+        for item in Results(self.reader.query(query)):
+            old_cats[decodeString(item.title)] = str(item.gcid)
+        to_add = []
+        for cat in newlist:
+            if cat in old_cats:
+                del old_cats[cat]
+            else:
+                to_add.append(cat)
+        to_delete = old_cats.values()
+
+        # add new categories
+        if to_add:
+            inserts = []
+            for cat in to_add:
+                cat = self._sql_quote(encodeString(cat))
+                inserts.append("(0, %s, %s, 0)" % (cat, self.db_org_id))
+            query = """
+                INSERT INTO GlobalCategories values
+                %s""" % ", ".join(inserts)
+            self.reader.query(query)
+
+        # delete old, unused categories
+        if to_delete:
+            query = """
+                DELETE from GlobalCategories
+                WHERE gcid IN (%s)""" % ", ".join(to_delete)
+            self.reader.query(query)
+            # and category/event links
+            query = """
+                DELETE from EvCats
+                WHERE gcid IN (%s)""" % ", ".join(to_delete)
+            self.reader.query(query)
+
+    def deleteEvent(self, eid):
+        """
+            Delete an event
+        """
+
+        eid = int(eid)
+
+        query = """
+            DELETE FROM Events
+            WHERE eid = %i
+        """ % eid
+        self.reader.query(query)
+
+    def deleteEventDates(self, eid):
+        """
+            Delete an event's dates
+        """
+
+        eid = int(eid)
+
+        query = """
+            DELETE FROM EvDates
+            WHERE eid = %i
+        """ % eid
+        self.reader.query(query)
+
+    def deleteEventCats(self, eid):
+        """
+            Delete an event's categories
+        """
+
+        eid = int(eid)
+
+        query = """
+            DELETE FROM EvCats
+            WHERE eid = %i
+        """ % eid
+        self.reader.query(query)
+
+    def evCatsInsert(self, eid, gcids):
+        """
+            insert categories for event
+            eid is a unique event id
+            gcids is a sequence of category ids for the event
+        """
+
+        eid = int(eid)
+        val_segments = [
+            "(%i, %i)" % (eid, int(cid)) for cid in gcids
+        ]
+        query = """
+            INSERT INTO EvCats (eid, gcid) VALUES
+            %s
+        """ % ',\n'.join(val_segments)
+        import pdb; pdb.set_trace()
+        self.reader.query(query)
+
+    def evDatesInsert(self, eid, dates):
+        """
+            Update EvDates table with dates for an event
+            eid is unique id of matching event
+            dates is a sequence of tuples (start, end, recurs)
+            start, end are datetime dates.
+        """
+
+        eid = int(eid)
+        val_segments = [
+            "(%i, %s, %s, %s)" % (
+                eid,
+                sdate.isoformat(),
+                edate.isoformat,
+                self._sql_quote(recurs)
+                )
+            for sdate, edate, recurs in dates
+        ]
+        query = """
+            INSERT INTO EvDates (eid, edate, sdate, recurs)  VALUES
+            %s
+        """ % ', '.join(val_segments)
+        import pdb; pdb.set_trace()
+        self.reader.query(query)
+
+    def updateEvent(self, eid, user_name, **kwa):
+        """
+            kwa should dereference to a dict of values
+            keyed by column
+        """
+
+        sql_quote = self._sql_quote
+        eid = int(eid)
+
+        assignments = []
+        for key in kwa.keys():
+            assert(key.replace('_', '').isalnum())
+            val = kwa[key]
+            if val is None:
+                val = ''
+            if type(val) == type(u''):
+                val = encodeString(val)
+            assignments.append("""%s=%s""" % (key, sql_quote(val)))
+        query = """
+            UPDATE Events
+            SET %s
+            WHERE eid=%i AND oid=%i
+        """ % (",\n".join(assignments), eid, self.db_org_id)
+        self.reader.query(query)

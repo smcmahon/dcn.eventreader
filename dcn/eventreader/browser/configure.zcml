@@ -9,9 +9,16 @@
       />
 
   <adapter for="*"
-     provides=".dbaccess.IEventDatabaseProvider"
-     factory=".dbaccess.EventDatabaseProvider"
-     />
+    provides=".dbaccess.IEventDatabaseProvider"
+    factory=".dbaccess.EventDatabaseProvider"
+    permission="zope.Public"
+    />
+
+  <adapter for="plone.app.layout.navigation.interfaces.INavigationRoot"
+    provides=".dbaccess.IEventDatabaseWriteProvider"
+    factory=".dbaccess.EventDatabaseWriteProvider"
+    permission="cmf.ModifyPortalContent"
+    />
 
   <browser:page
       for="plone.app.layout.navigation.interfaces.INavigationRoot"

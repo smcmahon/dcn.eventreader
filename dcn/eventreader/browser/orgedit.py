@@ -10,6 +10,7 @@
 
 from zope import interface
 from zope import schema
+from zope.component import getMultiAdapter
 from zope.schema.vocabulary import SimpleVocabulary
 
 from z3c.form import button
@@ -17,7 +18,7 @@ from z3c.form import button
 from plone.directives import form
 from plone.app.layout.navigation.interfaces import INavigationRoot
 
-from dbaccess import IEventDatabaseProvider
+from dbaccess import IEventDatabaseProvider, IEventDatabaseWriteProvider
 
 # from Products.statusmessages.interfaces import IStatusMessage
 
@@ -239,6 +240,14 @@ class EventOrgEditForm(form.SchemaForm):
     def handleApply(self, action):
         data, errors = self.extractData()
 
+        # get write access to the database
+        portal_state = getMultiAdapter(
+            (self.context, self.request),
+            name=u'plone_portal_state'
+            )
+        navigation_root = portal_state.navigation_root()
+        writer = IEventDatabaseWriteProvider(navigation_root)
+
         if errors:
             self.status = self.formErrorsMessage
             return
@@ -250,9 +259,9 @@ class EventOrgEditForm(form.SchemaForm):
         org_data = {}
         for key in EventOrgEditForm.database_attributes:
             org_data[key] = data.get(key)
-        self.database.updateOrgData(**org_data)
+        writer.updateOrgData(**org_data)
 
-        self.database.updateOrgCats(data.get('org_categories', []))
+        writer.updateOrgCats(data.get('org_categories', []))
 
         # Set status on this form page
         # (this status message is not bound to the session

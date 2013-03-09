@@ -4,7 +4,7 @@
 
 """
 
-# XXX: default categories not working
+# XXX: force oid check on event update
 
 from datetime import date
 import parsedatetime
@@ -15,19 +15,25 @@ import zope.component
 from zope.component import getMultiAdapter
 from zope.schema.vocabulary import SimpleVocabulary
 
+import z3c.form
 from z3c.form import button
 from z3c.form import validator
 
 from plone.directives import form
 from plone.app.layout.navigation.interfaces import INavigationRoot
 
-from dbaccess import IEventDatabaseProvider
+from dbaccess import IEventDatabaseProvider, IEventDatabaseWriteProvider
 from dbaccess import decodeString
 
 from caldate import parseDateString
 
 # from Products.CMFCore.interfaces import INavigationRoot
 # from Products.statusmessages.interfaces import IStatusMessage
+
+
+def struct_time2str(st):
+    # ##:## time from struct_time
+    return "%02d:%02d" % st[3:5]
 
 
 @interface.implementer(schema.interfaces.IContextSourceBinder)
@@ -54,6 +60,10 @@ class orgCatSource(object):
 
 class IEventEditForm(form.Schema):
     """ Define form fields """
+
+    eid = schema.TextLine(
+        title=u"Event ID",
+        )
 
     title = schema.TextLine(
         title=u"Event Title",
@@ -91,13 +101,13 @@ class IEventEditForm(form.Schema):
         required=False,
         )
 
-    begin_time = schema.TextLine(
+    begins = schema.TextLine(
         title=u"Starting Time",
         description=u"Leave starting and ending time empty for all-day events.",
         required=False,
         )
 
-    end_time = schema.TextLine(
+    ends = schema.TextLine(
         title=u"Ending Time",
         required=False,
         )
@@ -166,7 +176,7 @@ class BeginTimeValidator(TimeValidator):
     """ simple subclass """
 
 # Set conditions for which fields the validator class applies
-validator.WidgetValidatorDiscriminators(BeginTimeValidator, field=IEventEditForm['begin_time'])
+validator.WidgetValidatorDiscriminators(BeginTimeValidator, field=IEventEditForm['begins'])
 # Register the validator so it will be looked up by z3c.form machinery
 zope.component.provideAdapter(BeginTimeValidator)
 
@@ -177,14 +187,14 @@ class EndTimeValidator(TimeValidator):
     def validate(self, value):
         super(EndTimeValidator, self).validate(value)
         form = self.request.form
-        begins = form.get('begin_time_time')
-        ends = form.get('end_time_time')
+        begins = form.get('begins_time')
+        ends = form.get('ends_time')
         if begins is not None and ends is not None:
             if begins > ends:
                 raise zope.interface.Invalid(u"End time must be after start time.")
 
 # Set conditions for which fields the validator class applies
-validator.WidgetValidatorDiscriminators(EndTimeValidator, field=IEventEditForm['end_time'])
+validator.WidgetValidatorDiscriminators(EndTimeValidator, field=IEventEditForm['ends'])
 # Register the validator so it will be looked up by z3c.form machinery
 zope.component.provideAdapter(EndTimeValidator)
 
@@ -202,6 +212,7 @@ class EventEditForm(form.SchemaForm):
 
     # attributes we'll get from the database view
     database_attributes = (
+        'eid',
         'title',
         'description',
         'location',
@@ -209,6 +220,8 @@ class EventEditForm(form.SchemaForm):
         'eventContact',
         'eventEmail',
         'eventPhone',
+        'begins',
+        'ends',
         )
 
     def __init__(self, context, request):
@@ -219,6 +232,10 @@ class EventEditForm(form.SchemaForm):
         self.pdtcal = parsedatetime.Calendar()
         request['disable_border'] = 1
         request['disable_plone.rightcolumn'] = 1
+
+    def updateWidgets(self):
+        super(EventEditForm, self).updateWidgets()
+        self.widgets['eid'].mode = z3c.form.interfaces.HIDDEN_MODE
 
     def getContent(self):
         """
@@ -269,7 +286,30 @@ class EventEditForm(form.SchemaForm):
             self.status = self.formErrorsMessage
             return
 
-        # Do something with valid data here
+        # get write access to the database
+        portal_state = getMultiAdapter(
+            (self.context, self.request),
+            name=u'plone_portal_state'
+            )
+        navigation_root = portal_state.navigation_root()
+        writer = IEventDatabaseWriteProvider(navigation_root)
+        form = self.request.form
+        member = portal_state.member()
+
+        eid = data['eid']
+
+        event_data = {}
+        for key in EventEditForm.database_attributes:
+            if key != 'eid':
+                if key == 'begins':
+                    # ##:## time from struct_time
+                    event_data['startTime'] = struct_time2str(form['begins_time'])
+                elif key == 'ends':
+                    event_data['endTime'] = struct_time2str(form['ends_time'])
+                else:
+                    event_data[key] = data.get(key)
+
+        writer.updateEvent(eid, member, **event_data)
 
         # Set status on this form page
         # (this status message is not bound to the session
