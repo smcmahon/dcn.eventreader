@@ -4,6 +4,8 @@ Database access
 
 """
 
+# XXX: must handle old-style date entry
+
 import Acquisition
 
 # from zope.component import getMultiAdapter
@@ -440,19 +442,6 @@ class EventDatabaseWriteProvider(object):
         """ % eid
         self.reader.query(query)
 
-    def deleteEventDates(self, eid):
-        """
-            Delete an event's dates
-        """
-
-        eid = int(eid)
-
-        query = """
-            DELETE FROM EvDates
-            WHERE eid = %i
-        """ % eid
-        self.reader.query(query)
-
     def deleteEventCats(self, eid):
         """
             Delete an event's categories
@@ -481,7 +470,19 @@ class EventDatabaseWriteProvider(object):
             INSERT INTO EvCats (eid, gcid) VALUES
             %s
         """ % ',\n'.join(val_segments)
-        import pdb; pdb.set_trace()
+        self.reader.query(query)
+
+    def deleteEventDates(self, eid):
+        """
+            Delete an event's dates
+        """
+
+        eid = int(eid)
+
+        query = """
+            DELETE FROM EvDates
+            WHERE eid = %i
+        """ % eid
         self.reader.query(query)
 
     def evDatesInsert(self, eid, dates):
@@ -494,19 +495,18 @@ class EventDatabaseWriteProvider(object):
 
         eid = int(eid)
         val_segments = [
-            "(%i, %s, %s, %s)" % (
+            "(%i, '%s', '%s', %s)" % (
                 eid,
                 sdate.isoformat(),
-                edate.isoformat,
+                edate.isoformat(),
                 self._sql_quote(recurs)
                 )
             for sdate, edate, recurs in dates
         ]
         query = """
-            INSERT INTO EvDates (eid, edate, sdate, recurs)  VALUES
+            INSERT INTO EvDates (eid, sdate, edate, recurs)  VALUES
             %s
         """ % ', '.join(val_segments)
-        import pdb; pdb.set_trace()
         self.reader.query(query)
 
     def updateEvent(self, eid, user_name, **kwa):

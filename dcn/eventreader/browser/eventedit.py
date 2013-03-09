@@ -311,6 +311,12 @@ class EventEditForm(form.SchemaForm):
 
         writer.updateEvent(eid, member, **event_data)
 
+        writer.deleteEventCats(eid)
+        writer.evCatsInsert(eid, list(data['orgCats'].union(data['majorCats'])))
+
+        writer.deleteEventDates(eid)
+        writer.evDatesInsert(eid, ((data['start'], data['end'], data['recurs']), ))
+
         # Set status on this form page
         # (this status message is not bound to the session
         # and does not go thru redirects)
