@@ -12,7 +12,4 @@ jQuery(function ($) {
             }
         });
 
-    // $('#form-widgets-catOptions').select2({
-    //     placeholder: "Select Category Options…"
-    // });
 });

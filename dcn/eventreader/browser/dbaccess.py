@@ -113,6 +113,11 @@ class IEventDatabaseWriteProvider(interface.Interface):
             keyed by column
         """
 
+    def lastEventInsertId(self):
+        """
+            Fetch the autoincrement eid of the last event insert
+        """
+
 
 # decode string from win1252
 def decodeString(val):
@@ -129,6 +134,8 @@ def decodeStrings(adict):
 
 # encode string from win1252
 def encodeString(val):
+    if val is None:
+        return ''
     return val.encode('Windows-1252', 'replace')
 
 
@@ -462,15 +469,16 @@ class EventDatabaseWriteProvider(object):
             gcids is a sequence of category ids for the event
         """
 
-        eid = int(eid)
-        val_segments = [
-            "(%i, %i)" % (eid, int(cid)) for cid in gcids
-        ]
-        query = """
-            INSERT INTO EvCats (eid, gcid) VALUES
-            %s
-        """ % ',\n'.join(val_segments)
-        self.reader.query(query)
+        if gcids:
+            eid = int(eid)
+            val_segments = [
+                "(%i, %i)" % (eid, int(cid)) for cid in gcids
+            ]
+            query = """
+                INSERT INTO EvCats (eid, gcid) VALUES
+                %s
+            """ % ',\n'.join(val_segments)
+            self.reader.query(query)
 
     def deleteEventDates(self, eid):
         """
@@ -529,7 +537,67 @@ class EventDatabaseWriteProvider(object):
             assignments.append("""%s=%s""" % (key, sql_quote(val)))
         query = """
             UPDATE Events
-            SET %s
+            SET %s, lastUpdator=%s
             WHERE eid=%i AND oid=%i
-        """ % (",\n".join(assignments), eid, self.db_org_id)
+        """ % (",\n".join(assignments),
+            sql_quote(user_name),
+            eid,
+            self.db_org_id)
         self.reader.query(query)
+
+    def lastEventInsertId(self):
+        """
+            Fetch the autoincrement eid of the last event insert
+        """
+
+        query = """
+            select distinct last_insert_id() as liid from Events
+        """
+        return Results(self.reader.query(query))[0].liid
+
+    def eventInsert(self, member, **kwa):
+        """
+            Insert event into Events, with values from kwa;
+            return autoincrement eid
+        """
+
+        sql_quote = self._sql_quote
+        query = """
+            INSERT INTO Events SET
+                oid=%i,
+                startTime=%s,
+                endTime=%s,
+                title=%s,
+                description=%s,
+                public=%s,
+                free=%s,
+                location=%s,
+                community=%s,
+                eventUrl=%s,
+                eventContact=%s,
+                eventEmail=%s,
+                eventPhone=%s,
+                udf1=%s,
+                udf2=%s,
+                lastUpdator=%s,
+                lastUpdated=NOW()
+            """ % (
+                self.db_org_id,
+                sql_quote(encodeString(kwa.get('startTime', ''))),
+                sql_quote(encodeString(kwa.get('endTime', ''))),
+                sql_quote(encodeString(kwa.get('title', ''))),
+                sql_quote(encodeString(kwa.get('description', ''))),
+                sql_quote(encodeString(kwa.get('public', ''))),
+                sql_quote(encodeString(kwa.get('free', ''))),
+                sql_quote(encodeString(kwa.get('location', ''))),
+                sql_quote(encodeString(kwa.get('community', ''))),
+                sql_quote(encodeString(kwa.get('eventUrl', ''))),
+                sql_quote(encodeString(kwa.get('eventContact', ''))),
+                sql_quote(encodeString(kwa.get('eventEmail', ''))),
+                sql_quote(encodeString(kwa.get('eventPhone', ''))),
+                sql_quote(encodeString(kwa.get('udf1', ''))),
+                sql_quote(encodeString(kwa.get('udf2', ''))),
+                sql_quote(member),
+                )
+        self.reader.query(query)
+        return self.lastEventInsertId()

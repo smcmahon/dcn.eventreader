@@ -61,8 +61,10 @@ class orgCatSource(object):
 class IEventEditForm(form.Schema):
     """ Define form fields """
 
-    eid = schema.TextLine(
+    eid = schema.Int(
         title=u"Event ID",
+        default=0,
+        required=False,
         )
 
     title = schema.TextLine(
@@ -116,6 +118,34 @@ class IEventEditForm(form.Schema):
             title=u"Event Location",
             required=False,
         )
+
+    public = schema.Bool(
+            title=u"Is the event public?",
+            default=True,
+        )
+
+    free = schema.Bool(
+            title=u"Is the event free?",
+            default=True,
+        )
+
+    community = schema.Bool(
+            title=u"Should the event be listed on the Community Calendar?",
+            default=False,
+        )
+
+    ##############
+    # Contact Fieldset
+    form.fieldset(
+        'contactinfo',
+        label=u"Event Contact",
+        description=u"""
+            Contact information for this event.
+            Standard organization-specific contact information
+            will be shown if there is no event-specific information.
+            """,
+        fields=['eventUrl', 'eventContact', 'eventEmail', 'eventPhone']
+    )
 
     eventUrl = schema.URI(
             title=u"Event web page or site",
@@ -177,20 +207,24 @@ class TimeValidator(validator.SimpleFieldValidator):
 
     def validate(self, value):
         """ Validate time field """
-        if value is not None:
-            rez, flag = self.view.pdtcal.parse(value)
-            if flag == 2:
-                # 2 is valid time; every other flag is something else
-                self.request.form['%s_time' % self.field.getName()] = rez
-            else:
-                raise zope.interface.Invalid(u"Please specify a time in hh:mm am/pm format.")
+        if value is None:
+            value = '0:00'
+        rez, flag = self.view.pdtcal.parse(value)
+        if flag == 2:
+            # 2 is valid time; every other flag is something else
+            self.request.form['%s_time' % self.field.getName()] = rez
+        else:
+            raise zope.interface.Invalid(u"Please specify a time in hh:mm am/pm format.")
 
 
 class BeginTimeValidator(TimeValidator):
     """ simple subclass """
 
 # Set conditions for which fields the validator class applies
-validator.WidgetValidatorDiscriminators(BeginTimeValidator, field=IEventEditForm['begins'])
+validator.WidgetValidatorDiscriminators(
+    BeginTimeValidator,
+    field=IEventEditForm['begins']
+    )
 # Register the validator so it will be looked up by z3c.form machinery
 zope.component.provideAdapter(BeginTimeValidator)
 
@@ -205,10 +239,13 @@ class EndTimeValidator(TimeValidator):
         ends = form.get('ends_time')
         if begins is not None and ends is not None:
             if begins > ends:
-                raise zope.interface.Invalid(u"End time must be after start time.")
+                raise zope.interface.Invalid(u"End time must be at or after start time.")
 
 # Set conditions for which fields the validator class applies
-validator.WidgetValidatorDiscriminators(EndTimeValidator, field=IEventEditForm['ends'])
+validator.WidgetValidatorDiscriminators(
+    EndTimeValidator,
+    field=IEventEditForm['ends']
+    )
 # Register the validator so it will be looked up by z3c.form machinery
 zope.component.provideAdapter(EndTimeValidator)
 
@@ -242,7 +279,12 @@ class EventEditForm(form.SchemaForm):
         assert(INavigationRoot.providedBy(context))
         super(EventEditForm, self).__init__(context, request)
         self.database = IEventDatabaseProvider(context)
-        self.eid = int(request.form.get('eid', '0'))
+        # get eid from 'eid' or 'form.widgets.eid'
+        self.eid = int(
+            request.form.get('eid',
+                request.form.get('form.widgets.eid', '0').replace(',', '')
+                )
+            )
         self.pdtcal = parsedatetime.Calendar()
         request['disable_border'] = 1
         request['disable_plone.rightcolumn'] = 1
@@ -250,6 +292,13 @@ class EventEditForm(form.SchemaForm):
     def updateWidgets(self):
         super(EventEditForm, self).updateWidgets()
         self.widgets['eid'].mode = z3c.form.interfaces.HIDDEN_MODE
+
+    def updateActions(self):
+            super(EventEditForm, self).updateActions()
+
+            delete_action = self.actions.get('handleDelete')
+            if delete_action:
+                delete_action.onclick = u"return confirm('Delete this event?')"
 
     def getContent(self):
         """
@@ -266,6 +315,8 @@ class EventEditForm(form.SchemaForm):
             for key in EventEditForm.database_attributes:
                 value = event_data.get(key)
                 setattr(obj, key, value)
+            for key in ('public', 'free', 'community'):
+                setattr(obj, key, event_data[key] == "Y")
 
             cats = [c.gcid for c in self.database.getEventCats(eid)]
             my_cats = [c.gcid for c in self.database.getOrgCats()]
@@ -293,7 +344,19 @@ class EventEditForm(form.SchemaForm):
 
         return obj
 
-    @button.buttonAndHandler(u'Ok')
+    def _getWriter(self):
+        """
+            return a database writer
+        """
+
+        portal_state = getMultiAdapter(
+            (self.context, self.request),
+            name=u'plone_portal_state'
+            )
+        navigation_root = portal_state.navigation_root()
+        return IEventDatabaseWriteProvider(navigation_root)
+
+    @button.buttonAndHandler(u'Save Event')
     def handleApply(self, action):
         data, errors = self.extractData()
         if errors:
@@ -301,13 +364,12 @@ class EventEditForm(form.SchemaForm):
             return
 
         # get write access to the database
+        writer = self._getWriter()
+        form = self.request.form
         portal_state = getMultiAdapter(
             (self.context, self.request),
             name=u'plone_portal_state'
             )
-        navigation_root = portal_state.navigation_root()
-        writer = IEventDatabaseWriteProvider(navigation_root)
-        form = self.request.form
         member = portal_state.member()
 
         eid = data['eid']
@@ -322,13 +384,17 @@ class EventEditForm(form.SchemaForm):
                     event_data['endTime'] = struct_time2str(form['ends_time'])
                 else:
                     event_data[key] = data.get(key)
+        for key in ('public', 'free', 'community'):
+            event_data[key] = data.get(key) and "Y" or "N"
 
-        writer.updateEvent(eid, member, **event_data)
+        if eid:
+            writer.updateEvent(eid, member, **event_data)
+            writer.deleteEventCats(eid)
+            writer.deleteEventDates(eid)
+        else:
+            eid = writer.eventInsert(member, **event_data)
 
-        writer.deleteEventCats(eid)
         writer.evCatsInsert(eid, list(data['orgCats'].union(data['majorCats'])))
-
-        writer.deleteEventDates(eid)
         writer.evDatesInsert(eid, ((data['start'], data['end'], data['recurs']), ))
 
         # Set status on this form page
@@ -336,7 +402,25 @@ class EventEditForm(form.SchemaForm):
         # and does not go thru redirects)
         self.status = "Thank you very much!"
 
-    @button.buttonAndHandler(u"Cancel")
+    @button.buttonAndHandler(u"Delete Event",
+        name="handleDelete",
+        condition=lambda form: form.eid != 0)
+    def handleDelete(self, action):
+        """
+            Delete this event.
+        """
+
+        eid = self.eid
+        assert(eid != 0)
+
+        writer = self._getWriter()
+        writer.deleteEventCats(eid)
+        writer.deleteEventDates(eid)
+        writer.deleteEvent(eid)
+
+        self.status = "Event deleted."
+
+    @button.buttonAndHandler(u"Cancel Edits")
     def handleCancel(self, action):
         """User cancelled. Redirect back to the front page.
         """

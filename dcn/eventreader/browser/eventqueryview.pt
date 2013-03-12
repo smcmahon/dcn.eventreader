@@ -22,6 +22,11 @@
                         use_acronyms view/useAcronyms"
             tal:attributes="class string:calmode-$mode">
 
+            <dl tal:condition="view/editMode" class="portalMessage info">
+                <dt>Info</dt>
+                <dd>You are in edit mode.</dd>
+            </dl>
+
             <div id="calheader">
                 <h5 class="hiddenStructure">Mode</h5>
                 <ul id="calmode">
