@@ -67,6 +67,12 @@ class IEventDatabaseWriteProvider(interface.Interface):
             kwa should be a dict with keys matching orgs columns
         """
 
+    def insertOrg(self, **kwa):
+        """
+            kwa should be a dict with keys matching orgs columns.
+            returns new oid.
+        """
+
     def updateOrgCats(self, newlist):
         """
             We've received a new list of categories. We need
@@ -361,7 +367,6 @@ class EventDatabaseWriteProvider(object):
             self.db_org_id = getattr(context, 'dbOrgId', 0)
         else:
             self.db_org_id = 0
-        assert(self.db_org_id != 0)
 
     def _sql_quote(self, astring):
         return self.dbCal.sql_quote__(astring)
@@ -370,6 +375,8 @@ class EventDatabaseWriteProvider(object):
         """
             kwa should be a dict with keys matching orgs columns
         """
+
+        assert(self.db_org_id != 0)
 
         assignments = []
         for key in kwa.keys():
@@ -387,6 +394,36 @@ class EventDatabaseWriteProvider(object):
         """ % (", ".join(assignments), int(self.db_org_id))
         self.reader.query(query)
 
+    def insertOrg(self, **kwa):
+        """
+            kwa should be a dict with keys matching orgs columns.
+            returns new oid.
+        """
+
+        assert(self.db_org_id == 0)
+        assert(INavigationRoot.providedBy(self.context))
+
+        assignments = []
+        for key in kwa.keys():
+            assert(key.replace('_', '').isalnum())
+            val = kwa[key]
+            if val is None:
+                val = ''
+            if type(val) == type(u''):
+                val = encodeString(val)
+            assignments.append("""%s=%s""" % (key, self._sql_quote(val)))
+        query = """
+            INSERT INTO Orgs SET
+            %s
+        """ % (", ".join(assignments))
+        self.reader.query(query)
+
+        query = """
+            select distinct last_insert_id() as liid from Orgs
+        """
+        self.db_org_id = Results(self.reader.query(query))[0].liid
+        return self.db_org_id
+
     def updateOrgCats(self, newlist):
         """
             We've received a new list of org categories. We need
@@ -397,6 +434,8 @@ class EventDatabaseWriteProvider(object):
             categories.
         """
 
+        assert(self.db_org_id != 0)
+
         # Get the old list, put it into a dict keyed on titles
         query = """
             select title, gcid from GlobalCategories
@@ -406,11 +445,12 @@ class EventDatabaseWriteProvider(object):
         for item in Results(self.reader.query(query)):
             old_cats[decodeString(item.title)] = str(item.gcid)
         to_add = []
-        for cat in newlist:
-            if cat in old_cats:
-                del old_cats[cat]
-            else:
-                to_add.append(cat)
+        if newlist:
+            for cat in newlist:
+                if cat in old_cats:
+                    del old_cats[cat]
+                else:
+                    to_add.append(cat)
         to_delete = old_cats.values()
 
         # add new categories
@@ -441,6 +481,8 @@ class EventDatabaseWriteProvider(object):
             Delete an event
         """
 
+        assert(self.db_org_id != 0)
+
         eid = int(eid)
 
         query = """
@@ -453,6 +495,8 @@ class EventDatabaseWriteProvider(object):
         """
             Delete an event's categories
         """
+
+        assert(self.db_org_id != 0)
 
         eid = int(eid)
 
@@ -468,6 +512,8 @@ class EventDatabaseWriteProvider(object):
             eid is a unique event id
             gcids is a sequence of category ids for the event
         """
+
+        assert(self.db_org_id != 0)
 
         if gcids:
             eid = int(eid)
@@ -485,6 +531,8 @@ class EventDatabaseWriteProvider(object):
             Delete an event's dates
         """
 
+        assert(self.db_org_id != 0)
+
         eid = int(eid)
 
         query = """
@@ -500,6 +548,8 @@ class EventDatabaseWriteProvider(object):
             dates is a sequence of tuples (start, end, recurs)
             start, end are datetime dates.
         """
+
+        assert(self.db_org_id != 0)
 
         eid = int(eid)
         val_segments = [
@@ -522,6 +572,8 @@ class EventDatabaseWriteProvider(object):
             kwa should dereference to a dict of values
             keyed by column
         """
+
+        assert(self.db_org_id != 0)
 
         sql_quote = self._sql_quote
         eid = int(eid)
@@ -560,6 +612,8 @@ class EventDatabaseWriteProvider(object):
             Insert event into Events, with values from kwa;
             return autoincrement eid
         """
+
+        assert(self.db_org_id != 0)
 
         sql_quote = self._sql_quote
         query = """

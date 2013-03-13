@@ -42,9 +42,20 @@ class majorCatSource(object):
 class IEventOrgSchema(form.Schema):
     """ Define form fields """
 
+    name = schema.TextLine(
+        title=u"Organization name",
+        required=True,
+        )
+
     acronym = schema.TextLine(
         title=u"Acronym",
         description=u"Very short identifier for this organization in the community calendar",
+        required=True,
+        )
+
+    description = schema.TextLine(
+        title=u"Organization description",
+        required=False,
         )
 
     url = schema.URI(
@@ -94,7 +105,7 @@ class IEventOrgSchema(form.Schema):
             (u'Yes', 1),
             (u'No', 0)
             )),
-        default=1,
+        default=0,
         )
 
     ##############
@@ -122,6 +133,7 @@ class IEventOrgSchema(form.Schema):
             """,
         value_type=schema.Choice(vocabulary=cat_options),
         required=False,
+        default=set(['useMajorCats']),
         )
 
     org_categories = schema.List(
@@ -133,6 +145,7 @@ class IEventOrgSchema(form.Schema):
         """,
         value_type=schema.TextLine(),
         required=False,
+        default=[],
         )
 
     defaultMajorCats = schema.Set(
@@ -145,7 +158,8 @@ class IEventOrgSchema(form.Schema):
             If not, these will always be applied.
         """,
         required=False,
-        value_type=schema.Choice(source=majorCatSource())
+        value_type=schema.Choice(source=majorCatSource()),
+        default=set([]),
         )
 
     ##############
@@ -198,6 +212,8 @@ class EventOrgEditForm(form.SchemaForm):
 
     # attributes we'll get from the database view
     database_attributes = (
+        'name',
+        'description',
         'acronym',
         'url',
         'alt_cal_url',
@@ -228,12 +244,16 @@ class EventOrgEditForm(form.SchemaForm):
             value = getattr(self.context, key, '')
             setattr(obj, key, value)
 
-        org_data = self.database.getOrgData()
-        for key in EventOrgEditForm.database_attributes:
-            value = org_data.get(key)
-            setattr(obj, key, value)
+        if self.database.db_org_id:
+            org_data = self.database.getOrgData()
+            for key in EventOrgEditForm.database_attributes:
+                value = org_data.get(key)
+                setattr(obj, key, value)
+            obj.org_categories = [c.title for c in self.database.getOrgCats()]
+        else:
+            obj.name = getattr(self.context, 'title', u"Organization Name")
+            obj.description = getattr(self.context, 'description', u"Organization Description")
 
-        obj.org_categories = [c.title for c in self.database.getOrgCats()]
         return obj
 
     @button.buttonAndHandler(u'Save')
@@ -259,7 +279,11 @@ class EventOrgEditForm(form.SchemaForm):
         org_data = {}
         for key in EventOrgEditForm.database_attributes:
             org_data[key] = data.get(key)
-        writer.updateOrgData(**org_data)
+        if writer.db_org_id == 0:
+            db_org_id = writer.insertOrg(**org_data)
+            setattr(navigation_root, 'dbOrgId', db_org_id)
+        else:
+            writer.updateOrgData(**org_data)
 
         writer.updateOrgCats(data.get('org_categories', []))
 
