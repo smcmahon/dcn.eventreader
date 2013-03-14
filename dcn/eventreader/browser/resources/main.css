@@ -157,3 +157,23 @@ ul#calcats {
 #s2id_form-widgets-catOptions {
     min-width: 40em;
 }
+
+.infobuttons {
+    text-align: center;
+}
+.infobuttons a {
+    background-color: #CCCCCC;
+    border-bottom: medium none;
+    cursor: pointer;
+    display: inline-block;
+    font-size: 150%;
+    margin: 0 1em;
+    padding: 0.5em !important;
+}
+#content dd.infobuttons a.link-overlay {
+    border-bottom: medium none;
+}
+#content dd.infobuttons a:hover {
+    background-color: #069 !important;
+    color: #fff !important;
+}

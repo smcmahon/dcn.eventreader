@@ -5,7 +5,8 @@
 """
 
 # XXX To-do: validate count of org-specific categories
-# Make cancel do something useful
+# Make redirect smarter
+# figure out a way to make messages survive the overlay redirect
 
 
 from zope import interface
@@ -20,7 +21,7 @@ from plone.app.layout.navigation.interfaces import INavigationRoot
 
 from dbaccess import IEventDatabaseProvider, IEventDatabaseWriteProvider
 
-# from Products.statusmessages.interfaces import IStatusMessage
+from Products.statusmessages.interfaces import IStatusMessage
 
 cat_options = SimpleVocabulary.fromItems((
     (u'Use Organization-Specific Categories', 'useOrgCats'),
@@ -287,12 +288,14 @@ class EventOrgEditForm(form.SchemaForm):
 
         writer.updateOrgCats(data.get('org_categories', []))
 
-        # Set status on this form page
-        # (this status message is not bound to the session
-        # and does not go thru redirects)
-        self.status = "Organization event settings updated"
+        messages = IStatusMessage(self.request)
+        messages.add(u"Organization event settings updated", type=u"info")
+
+        self.request.response.redirect("@@caledit")
 
     @button.buttonAndHandler(u"Cancel")
     def handleCancel(self, action):
         """User cancelled. Redirect back to the front page.
         """
+
+        self.request.response.redirect("@@caledit")

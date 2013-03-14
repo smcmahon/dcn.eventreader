@@ -528,6 +528,8 @@ class EventEditQueryView(EventQueryView):
 
     def __init__(self, context, request):
         super(EventEditQueryView, self).__init__(context, request)
+        if self.db_org_id == 0:
+            request.response.redirect('@@eventorg-edit')
         self.editing = True
 
     @memoize

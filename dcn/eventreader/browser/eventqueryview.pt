@@ -24,7 +24,11 @@
 
             <dl tal:condition="view/editMode" class="portalMessage info">
                 <dt>Info</dt>
-                <dd>You are in edit mode.</dd>
+                <dd>You are in edit mode. To edit or delete an existing event, click on its title.</dd>
+                <dd class="infobuttons">
+                    <a href="eventorg-edit">Edit Calendar Settings</a>
+                    <a href="event-edit">Add a New Event</a>
+                </dd>
             </dl>
 
             <div id="calheader">

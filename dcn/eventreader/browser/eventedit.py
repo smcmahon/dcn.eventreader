@@ -4,9 +4,12 @@
 
 """
 
-# XXX: force oid check on event update
+# Handle old-style scheduling
+# Make sure that if irregular is chosen, there is a date list
+# figure out a way to make messages survive the overlay redirect
 
 from datetime import date
+import re
 import parsedatetime
 
 from zope import interface
@@ -25,10 +28,8 @@ from plone.app.layout.navigation.interfaces import INavigationRoot
 from dbaccess import IEventDatabaseProvider, IEventDatabaseWriteProvider
 from dbaccess import decodeString
 
-from caldate import parseDateString
-
 # from Products.CMFCore.interfaces import INavigationRoot
-# from Products.statusmessages.interfaces import IStatusMessage
+from Products.statusmessages.interfaces import IStatusMessage
 
 
 def struct_time2str(st):
@@ -91,6 +92,7 @@ class IEventEditForm(form.Schema):
             (u'Weekly', 'weekly'),
             (u'Bi-Weekly', 'biweekly'),
             (u'Monthly', 'monthly'),
+            (u'Irregularly', 'irregular'),
             )),
         )
 
@@ -101,6 +103,18 @@ class IEventEditForm(form.Schema):
             it to the same date as the start date.
         """,
         required=False,
+        )
+
+    dates = schema.TextLine(
+        title=u"Dates",
+        description=u"""
+            For multiple date events that don't recur regularly
+            enter a list of dates (MO/DY/YR) separated by spaces
+            or commas. If you list any dates here, the Start/End/Occurs
+            fields above will be ignored.
+            """,
+            required=False,
+            default=u'',
         )
 
     begins = schema.TextLine(
@@ -202,8 +216,39 @@ class IEventEditForm(form.Schema):
         )
 
 
+split_pattern = re.compile(r"[ ,;:]+")
+
+
+class DateStringValidator(validator.SimpleFieldValidator):
+    """
+        z3c.form validator class for textLine of dates;
+        "3/1/13 3-1-2013, 03/01/2013"
+    """
+
+    def validate(self, value):
+        dates = split_pattern.split(value)
+        results = []
+        for dtstr in dates:
+            if dtstr:
+                rez, flag = self.view.pdtcal.parse(dtstr.replace('-', '/'))
+                if flag == 1:
+                    # 1 is valid date; every other flag is something else
+                    results.append(date(*rez[0:3]))
+                else:
+                    raise zope.interface.Invalid(u"Please specify a list of MO/DY/YR dates.")
+        self.request.form['date_list'] = results
+
+
+validator.WidgetValidatorDiscriminators(
+    DateStringValidator,
+    field=IEventEditForm['dates']
+    )
+# Register the validator so it will be looked up by z3c.form machinery
+zope.component.provideAdapter(DateStringValidator)
+
+
 class TimeValidator(validator.SimpleFieldValidator):
-    """ z3c.form validator class for international phone numbers """
+    """ z3c.form validator class for time """
 
     def validate(self, value):
         """ Validate time field """
@@ -253,6 +298,9 @@ zope.component.provideAdapter(EndTimeValidator)
 class EventContext(object):
     interface.implements(IEventEditForm)
 
+
+class Recurrence(object):
+    """ bare class """
 
 class EventEditForm(form.SchemaForm):
     """ Define Form handling
@@ -305,13 +353,44 @@ class EventEditForm(form.SchemaForm):
         fill and return a content object
         """
 
+        def strToDate(s):
+            yr, mo, day = s.split('-')
+            return date(int(yr), int(mo), int(day))
+
+        def findRecurs(dates):
+            last_delta = None
+            starts = [d.start for d in dates]
+            prev = strToDate(starts[0])
+            for start in starts[1:]:
+                dt = strToDate(start)
+                delta = dt - prev
+                if last_delta and delta != last_delta:
+                    return None
+                prev = dt
+                last_delta = delta
+            if delta.days == 1:
+                recurs = "daily"
+            elif delta.days == 7:
+                recurs = "weekly"
+            elif delta.days == 7:
+                recurs = "biweekly"
+            else:
+                return None
+
+            # we need to return an object with start, end, recurs
+            # attributes
+            obj = Recurrence()
+            obj.start = starts[0]
+            obj.end = starts[-1]
+            obj.recurs = recurs
+            return obj
+
         obj = EventContext()
         obj._database = self.database
 
         eid = self.eid
         if eid:
             event_data = self.database.getEvent(eid)
-            assert(self.database.db_org_id == event_data['oid'])
             for key in EventEditForm.database_attributes:
                 value = event_data.get(key)
                 setattr(obj, key, value)
@@ -331,9 +410,31 @@ class EventEditForm(form.SchemaForm):
             obj.orgCats = org_cats
 
             dates = self.database.getEventDates(eid)
-            obj.start = parseDateString(dates[0].start)
-            obj.end = parseDateString(dates[0].end)
-            obj.recurs = dates[0].recurs
+
+            # check to see if this is an old-style date list
+            # that happens to recur regularly
+            if len(dates) > 1:
+                recurs = findRecurs(dates)
+                if recurs:
+                    # we can normalize it to start, end, recurs
+                    dates = [recurs]
+
+            if len(dates) == 1:
+                # simple scheduling
+                obj.start = strToDate(dates[0].start)
+                obj.end = strToDate(dates[0].end)
+                obj.recurs = dates[0].recurs
+            else:
+                # we are irregularly scheduled
+                obj.start = date.today()
+                obj.end = date.today()
+                obj.recurs = 'irregular'
+                if len(dates):
+                    wkdates = []
+                    for d in dates:
+                        yr, mo, dy = d.start.split('-')
+                        wkdates.append("/".join((mo, dy, yr[2:])))
+                    obj.dates = ", ".join(wkdates)
         else:
             obj.start = date.today()
             obj.end = date.today()
@@ -395,12 +496,21 @@ class EventEditForm(form.SchemaForm):
             eid = writer.eventInsert(member, **event_data)
 
         writer.evCatsInsert(eid, list(data['orgCats'].union(data['majorCats'])))
-        writer.evDatesInsert(eid, ((data['start'], data['end'], data['recurs']), ))
 
-        # Set status on this form page
-        # (this status message is not bound to the session
-        # and does not go thru redirects)
-        self.status = "Thank you very much!"
+        if data['dates']:
+            # irregular scheduling; save a list of dates
+            writer.evDatesInsert(
+                eid,
+                [(dt, dt, u"daily") for dt in form['date_list']]
+                )
+        else:
+            # regular scheduling
+            writer.evDatesInsert(eid, ((data['start'], data['end'], data['recurs']), ))
+
+        messages = IStatusMessage(self.request)
+        messages.add(u"Event saved", type=u"info")
+
+        self.request.response.redirect("@@caledit")
 
     @button.buttonAndHandler(u"Delete Event",
         name="handleDelete",
@@ -418,9 +528,14 @@ class EventEditForm(form.SchemaForm):
         writer.deleteEventDates(eid)
         writer.deleteEvent(eid)
 
-        self.status = "Event deleted."
+        messages = IStatusMessage(self.request)
+        messages.add(u"Event deleted", type=u"info")
+
+        self.request.response.redirect("caledit")
 
     @button.buttonAndHandler(u"Cancel Edits")
     def handleCancel(self, action):
         """User cancelled. Redirect back to the front page.
         """
+
+        self.request.response.redirect("caledit")
