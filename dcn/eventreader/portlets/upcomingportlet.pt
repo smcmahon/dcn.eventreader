@@ -1,28 +1,35 @@
 <dl class="portlet portletUpcomingPortlet"
     i18n:domain="dcn.eventreader"
-    tal:define="daylist view/eventDayList"
+    tal:define="daylist view/eventDayList;
+                nav_root_url context/@@plone_portal_state/navigation_root_url;
+                event_base_url string:${nav_root_url}/showEvent?eid="
     tal:condition="daylist">
 
     <dt class="portletHeader">
         <span class="portletTopLeft"></span>
-        Header
+        <a href="#"
+           tal:attributes="href string:${nav_root_url}/calendar">Upcoming Events</a>
         <span class="portletTopRight"></span>
     </dt>
 
     <dd class="portletItem odd">
-        Body text!
         <div tal:repeat="day daylist">
-            <div tal:content="python:day[0]" />
-            <div tal:repeat="event python:day[1]">
-                <div tal:content="event/title" />
-            </div>
+            <h3 tal:content="python:day[0]" />
+            <ul>
+                <li tal:repeat="event python:day[1]">
+                    <a tal:content="event/title"
+                       tal:attributes="href string:${event_base_url}${event/eid}"
+                     />
+                </li>
+            </ul>
             <br />
         </div>
     </dd>
 
     <dd class="portletFooter">
         <span class="portletBottomLeft"></span>
-        Footer
+        <a href="#"
+           tal:attributes="href string:${nav_root_url}/calendar">More events…</a>
         <span class="portletBottomRight"></span>
     </dd>
 

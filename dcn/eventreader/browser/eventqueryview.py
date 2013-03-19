@@ -310,6 +310,9 @@ class EventQueryView(BrowserView):
         """ return upcoming events as list of day lists.
             Format is [[date, [eventdict,...]]...] """
 
+        def mediumFormatDate(d):
+            return d.strftime("%A, %x")
+
         self.params['mode'] = 'upcoming'
         events = self.eventList()
         day = []
@@ -320,7 +323,7 @@ class EventQueryView(BrowserView):
             sdate = e[0]
             if sdate != last_date:
                 if day:
-                    rez.append([last_date, day])
+                    rez.append([mediumFormatDate(last_date), day])
                     day = []
                 last_date = sdate
             day += e[1]
@@ -328,7 +331,7 @@ class EventQueryView(BrowserView):
             if found >= max:
                 break
         if day:
-            rez.append([last_date, day])
+            rez.append([mediumFormatDate(last_date), day])
         return rez
 
     def myUrl(self, **overrides):

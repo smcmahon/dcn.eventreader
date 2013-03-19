@@ -177,3 +177,35 @@ ul#calcats {
     background-color: #069 !important;
     color: #fff !important;
 }
+
+.eventDetails {
+    border-color: #CCCCCC;
+    border-style: solid;
+    border-width: 0.08em;
+    margin-top: 1em;
+    width: 22em;
+}
+.eventDetails h2 {
+    background-color: #DDDDDD;
+    font-size: 100%;
+    letter-spacing: 0;
+    padding: 0.5em 0.5em 0.5em 1em;
+}
+.eventDetails .eventDetail {
+    clear: both;
+    font-size: 80%;
+    line-height: 1.5em;
+}
+.eventDetails .eventDetail h3 {
+    float: left;
+    font-size: 100%;
+    text-align: right;
+    width: 37%;
+}
+.eventDetails .eventDetail h3, .eventDetails .eventDetail div {
+    padding: 2%;
+}
+.eventDetails .eventDetail div {
+    float: left;
+    width: 55%;
+}

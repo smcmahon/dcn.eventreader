@@ -77,15 +77,12 @@ class IEventEditForm(form.Schema):
         title=u"Event Description",
         )
 
-    start = schema.Date(
-        title=u"Starting Date",
-        )
-
     recurs = schema.Choice(
         title=u"Occurs",
         description=u"""
             Frequency of the event.
             Monthly means same week/day-of-week, for example 'Third Tuesday'.
+            Choose "daily" for a single-day event.
         """,
         vocabulary=SimpleVocabulary.fromItems((
             (u'Daily', 'daily'),
@@ -94,6 +91,10 @@ class IEventEditForm(form.Schema):
             (u'Monthly', 'monthly'),
             (u'Irregularly', 'irregular'),
             )),
+        )
+
+    start = schema.Date(
+        title=u"Starting Date",
         )
 
     end = schema.Date(
@@ -110,8 +111,7 @@ class IEventEditForm(form.Schema):
         description=u"""
             For multiple date events that don't recur regularly
             enter a list of dates (MO/DY/YR) separated by spaces
-            or commas. If you list any dates here, the Start/End/Occurs
-            fields above will be ignored.
+            or commas.
             """,
             required=False,
             default=u'',
@@ -226,6 +226,11 @@ class DateStringValidator(validator.SimpleFieldValidator):
     """
 
     def validate(self, value):
+        if self.request.form.get("form.widgets.recurs", [u"Daily"])[0] != u"Irregularly":
+            return
+        if not value:
+            raise zope.interface.Invalid(u"Please specify at least one date.")
+
         dates = split_pattern.split(value)
         results = []
         for dtstr in dates:
@@ -497,7 +502,7 @@ class EventEditForm(form.SchemaForm):
 
         writer.evCatsInsert(eid, list(data['orgCats'].union(data['majorCats'])))
 
-        if data['dates']:
+        if data['recurs'] == 'irregular':
             # irregular scheduling; save a list of dates
             writer.evDatesInsert(
                 eid,
