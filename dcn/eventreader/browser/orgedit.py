@@ -291,11 +291,11 @@ class EventOrgEditForm(form.SchemaForm):
         messages = IStatusMessage(self.request)
         messages.add(u"Organization event settings updated", type=u"info")
 
-        self.request.response.redirect("@@caledit")
+        self.request.response.redirect("caledit")
 
     @button.buttonAndHandler(u"Cancel")
     def handleCancel(self, action):
         """User cancelled. Redirect back to the front page.
         """
 
-        self.request.response.redirect("@@caledit")
+        self.request.response.redirect("caledit")

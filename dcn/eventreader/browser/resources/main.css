@@ -209,3 +209,21 @@ ul#calcats {
     float: left;
     width: 55%;
 }
+
+/* Edit Bar */
+.calendar #edit-bar {
+    font-size: 100%;
+}
+.calendar #content-views li {
+    display: inline;
+    margin: 0;
+}
+.calendar #content-views li a {
+    border-bottom: none !important;
+}
+
+/* misc fix, Plone 4.3rc1 */
+
+#content-views {
+    margin-top: -1px;
+}

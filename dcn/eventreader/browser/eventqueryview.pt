@@ -19,8 +19,30 @@
             tal:define="event_base view/showEventUrl;
                         mode view/getMode;
                         events view/eventMonth;
-                        use_acronyms view/useAcronyms"
+                        use_acronyms view/useAcronyms;
+                        can_edit context/@@plone_context_state/is_editable"
             tal:attributes="class string:calmode-$mode">
+
+            <div class="documentEditable calendar" tal:condition="can_edit">
+                <div id="edit-bar">
+                    <div class="hiddenStructure">Views</div>
+                    <ul class="contentViews" id="content-views">
+                      <li id="contentview-view" class="plain"
+                        tal:attributes="class python: view.editMode() and 'plain' or 'selected'"
+                        >
+                        <a href="calendar">View</a>
+                      </li>
+                      <li id="contentview-edit" class="selected"
+                        tal:attributes="class python: view.editMode() and 'selected' or 'plain'"
+                        >
+                        <a href="caledit">Edit</a>
+                      </li>
+                      <li id="contentview-settings" class="plain">
+                        <a href="eventorg-edit">Settings</a>
+                      </li>
+                    </ul>
+                </div>
+            </div>
 
             <dl tal:condition="view/editMode" class="portalMessage info">
                 <dt>Info</dt>

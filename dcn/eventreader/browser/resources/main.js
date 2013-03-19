@@ -4,7 +4,8 @@ jQuery(function ($) {
         subtype:'ajax',
         formselector: '#form',
         closeselector: '#form-buttons-cancel',
-        filter: common_content_filter,
+//        filter: common_content_filter,
+        filter: "#content",
         noform: function(el) {return $.plonepopups.noformerrorshow(el, 'redirect');},
         redirect: '@@caledit',
         afterpost: function (el, data_parent) {
