@@ -6,22 +6,24 @@ h2.currmonth {
 }
 
 #calbody .calweekrow td {
-    border: 1px solid black;
+    border: 1px solid #aaa;
     padding: 0;
     text-align: left;
     vertical-align: top;
     width: 14%;
+}
+#calbody .calweekrow td.omonth {
+    background-color: #ccc;
 }
 .caldayheader {
     padding-top: 1em;
     text-align: center;
 }
 .caldaynumber {
-    background-color: #fff;
-    border-bottom: 1px solid black;
-    border-left: 1px solid black;
+    background-color: transparent;
     float: right;
-    font-weight: normal;
+    font-size: 120%;
+    font-weight: bold;
     padding: 0.2em;
     text-align: center;
     width: 1.5em;
@@ -222,8 +224,19 @@ ul#calcats {
     border-bottom: none !important;
 }
 
+ul.orgblock {
+    display: block;
+    float: left;
+    width: 30%;
+}
+
+.eventorg {
+    margin-bottom: 2em;
+}
+
 /* misc fix, Plone 4.3rc1 */
 
 #content-views {
     margin-top: -1px;
 }
+

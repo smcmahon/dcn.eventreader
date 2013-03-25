@@ -4,7 +4,7 @@ Database access
 
 """
 
-# XXX: must handle old-style date entry
+import datetime
 
 import Acquisition
 
@@ -54,6 +54,12 @@ class IEventDatabaseProvider(interface.Interface):
     def getEventDates(self, eid):
         """ return a list of the dates associated with the
             event as objects.
+        """
+
+    def currentOrgs(self):
+        """
+            Returns a list of organizations with current events
+            that want community calendar links
         """
 
 
@@ -123,6 +129,9 @@ class IEventDatabaseWriteProvider(interface.Interface):
         """
             Fetch the autoincrement eid of the last event insert
         """
+
+    def getOrg(self, oid):
+        """ return org for specified org """
 
 
 # decode string from win1252
@@ -350,6 +359,47 @@ class EventDatabaseProvider(object):
             WHERE eid = %i
         """ % (eid)
         return Results(self.reader.query(query))
+
+    def currentOrgs(self):
+        """
+            Returns a list of organizations with current events
+            that want community calendar links
+        """
+
+        today = datetime.date.today()
+        som = caldate.startOfMonth(today).isoformat()
+        eom = caldate.endOfMonth(today).isoformat()
+
+        # query = """
+        #     SELECT DISTINCT o.oid, o.name AS orgname, o.alt_cal_url, o.acronym
+        #     FROM EvDates ev, Events e, Orgs o
+        #     WHERE
+        #         ev.sdate >= "%s"
+        #         AND ev.edate <= "%s"
+        #         AND ev.eid = e.eid
+        #         AND o.oid = e.oid
+        #         AND o.ccal_link =1
+        #     ORDER BY orgname
+        # """ % (som, eom)
+        query = """
+            SELECT DISTINCT o.oid, o.name AS orgname, o.alt_cal_url, o.acronym
+            FROM Orgs o
+            WHERE
+                o.ccal_link =1
+            ORDER BY orgname
+        """
+        return Results(self.reader.query(query))
+
+    def getOrg(self, oid):
+        """ return org for specified org """
+
+        query = """
+            SELECT *
+            FROM Orgs
+            WHERE
+                oid = %d
+        """ % int(oid)
+        return Results(self.reader.query(query))[0]
 
 
 class EventDatabaseWriteProvider(object):

@@ -1,6 +1,7 @@
 import calendar
 from datetime import date
 from datetime import timedelta
+from time import time
 
 from Acquisition import aq_get, aq_base
 from zope.i18nmessageid import MessageFactory
@@ -8,6 +9,7 @@ from zope.interface import implements, Interface
 from zope.component import getMultiAdapter
 
 from plone.memoize.instance import memoize
+from plone.memoize import ram
 
 from Products.Five import BrowserView
 from Products.CMFCore.utils import getToolByName
@@ -107,6 +109,16 @@ class IEventQueryView(Interface):
     def editMode():
         """ are we in edit mode? """
 
+    def orgList(self):
+        """
+            return a list of current organizations
+        """
+
+    def showOrgList(self):
+        """
+            returns True if we should display org list
+        """
+
 
 def cleanDate(adate):
     return adate.strftime('%Y-%m-%d')
@@ -145,8 +157,14 @@ class EventQueryView(BrowserView):
         # consolidate with site params winning collisions
         param_utils.consolidateParams(vals, svals)
 
+        param_orgs = vals.get('org')
+        if param_orgs and not self.db_org_list:
+            self.db_org_list = param_orgs
+            vals['public'] = 'y'
+            self.site_params['public'] = 'y'
+
         # If no org set, always show public, community
-        if not (self.db_org_list or vals.get('org')):
+        if not self.db_org_list:
             vals['public'] = 'y'
             vals['common'] = 'y'
             # so they don't show up on URLs:
@@ -217,13 +235,15 @@ class EventQueryView(BrowserView):
         events = self.eventsByDay(start, end)
 
         emonth = []
+        my_month = month_dates[1][1].month
         for week in month_dates:
             thisweek = []
             for day in week:
                 thisweek.append({
                     'day': day.day,
                     'events': events.get(day, []),
-                    'today': day == today
+                    'today': day == today,
+                    'klass': (day.month != my_month) and 'omonth' or '',
                     })
             emonth.append(thisweek)
 
@@ -503,7 +523,6 @@ class EventQueryView(BrowserView):
 
         return not (self.db_org_id or self.db_org_list) and self.getMode() != 'day'
 
-
     def setParam(self, **kwa):
         """ set params directly, typically from a template """
 
@@ -521,6 +540,51 @@ class EventQueryView(BrowserView):
         """ are we in edit mode? """
 
         return self.editing
+
+    @ram.cache(lambda *args: time() // 300)
+    def orgList(self):
+        """
+            return a list of current organizations
+        """
+
+        print "Generating orgList"
+        base_url = self.context_state.current_base_url()
+        org_list = self.database.currentOrgs()
+        ol_len_third = len(org_list) / 3
+        rez = [[], [], []]
+        count = 0
+        for o in org_list:
+            if o.alt_cal_url:
+                url = o.alt_cal_url
+            else:
+                url = "%s?org=%d" % (base_url, o.oid)
+            rez[count / ol_len_third].append({
+                'url': url,
+                'orgname': o.orgname,
+                'acronym': o.acronym,
+                })
+            count += 1
+        return rez
+
+    @memoize
+    def showOrgList(self):
+        """
+            returns True if we should display org list
+        """
+        # print self.db_org_id, self.db_org_list
+        return not (self.db_org_id or self.db_org_list)
+
+    @memoize
+    def orgForDisplay(self):
+        """
+            returns current org --
+            if there is one, and if we need a special
+            display.
+        """
+
+        if len(self.db_org_list) == 1:
+            return self.database.getOrg(self.db_org_list[0])
+        return None
 
 
 class EventEditQueryView(EventQueryView):

@@ -44,6 +44,18 @@
                 </div>
             </div>
 
+            <div class="eventorg"
+                tal:define="org view/orgForDisplay"
+                tal:condition="org">
+                <h1 tal:content="org/name" />
+                <div class="documentDescription"
+                    tal:condition="org/description"
+                    tal:content="org/description" />
+                <div tal:condition="org/url">
+                    Website: <a tal:content="org/url" tal:attributes="href org/url" />
+                </div>
+            </div>
+
             <dl tal:condition="view/editMode" class="portalMessage info">
                 <dt>Info</dt>
                 <dd>You are in edit mode. To edit or delete an existing event, click on its title.</dd>
@@ -92,34 +104,48 @@
                     <th tal:content="view/getFullDate" class="caldayheader" />
                 </tr>
                 <tr tal:repeat="week events" class="calweekrow">
-                    <td tal:repeat="eday week">
-                        <div tal:content="eday/day"
-                             tal:condition="python:mode != 'day'"
-                             tal:attributes="class python:eday['today'] and 'caldaynumber caldaytoday' or 'caldaynumber'" />
-                        <ul>
-                        <li tal:repeat="event eday/events" class="caleventtitle" >
-                            <span tal:content="event/begins" tal:condition="python:event['begins'] != '12:00am'" class="eventtime" />
-                            <acronym
-                              tal:condition="python: use_acronyms and event.get('acronym')"
-                              tal:content="event/acronym"
-                              tal:attributes="title event/orgname">acronym</acronym>
-                            <a href="#"
-                               tal:attributes="title event/description; href string:${event_base}${event/eid}" class="eventtitle">
-                                <span tal:replace="event/title" />
-                            </a>
-                            <div tal:condition="python:mode == 'day'">
-                                <span tal:replace="event/begins" />
-                                –
-                                <span tal:replace="event/ends" />
-                                <div tal:content="event/orgname" />
-                                <div tal:content="event/location" />
-                                <div tal:content="event/description" style="white-space:pre-line" />
-                            </div>
-                        </li>
-                        </ul>
-                    </td>
+                    <tal:block tal:repeat="eday week">
+                        <td tal:attributes="class eday/klass">
+                            <div tal:content="eday/day"
+                                 tal:condition="python:mode != 'day'"
+                                 tal:attributes="class python:eday['today'] and 'caldaynumber caldaytoday' or 'caldaynumber'" />
+                            <ul>
+                            <li tal:repeat="event eday/events" class="caleventtitle" >
+                                <span tal:content="event/begins" tal:condition="python:event['begins'] != '12:00am'" class="eventtime" />
+                                <acronym
+                                  tal:condition="python: use_acronyms and event.get('acronym')"
+                                  tal:content="event/acronym"
+                                  tal:attributes="title event/orgname">acronym</acronym>
+                                <a href="#"
+                                   tal:attributes="title event/description; href string:${event_base}${event/eid}" class="eventtitle">
+                                    <span tal:replace="event/title" />
+                                </a>
+                                <div tal:condition="python:mode == 'day'">
+                                    <span tal:replace="event/begins" />
+                                    –
+                                    <span tal:replace="event/ends" />
+                                    <div tal:content="event/orgname" />
+                                    <div tal:content="event/location" />
+                                    <div tal:content="event/description" style="white-space:pre-line" />
+                                </div>
+                            </li>
+                            </ul>
+                        </td>
+                    </tal:block>
                 </tr>
             </table>
+
+            <div id="orglist" tal:condition="view/showOrgList">
+                <h2>Participating Organizations</h2>
+                <ul class="orgblock" tal:repeat="block view/orgList">
+                    <li tal:repeat="org block">
+                        <a tal:attributes="href org/url">
+                            <span tal:content="org/orgname" />
+                            <span tal:condition="org/acronym" tal:content="string:(${org/acronym})" />
+                        </a>
+                    </li>
+                </ul>
+            </div>
 
           </div>
 

@@ -25,7 +25,7 @@ setup(name='dcn.eventreader',
       zip_safe=False,
       install_requires=[
           'setuptools',
-          # -*- Extra requirements: -*-
+          'parsedatetime',
       ],
       entry_points="""
       # -*- Entry points: -*-
