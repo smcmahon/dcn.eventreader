@@ -550,7 +550,7 @@ class EventQueryView(BrowserView):
         print "Generating orgList"
         base_url = self.context_state.current_base_url()
         org_list = self.database.currentOrgs()
-        ol_len_third = len(org_list) / 3
+        ol_len_third = len(org_list) / 3 + 1
         rez = [[], [], []]
         count = 0
         for o in org_list:
